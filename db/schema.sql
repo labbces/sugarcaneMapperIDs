@@ -29,10 +29,18 @@ CREATE TABLE sequence2sequenceSet (
   FOREIGN KEY (sequenceSetID) REFERENCES sequenceSet(ID)
 );
 
-CREATE TABLE panTranscriptome (
+CREATE TABLE panTranscriptomeGroup (
   ID INTEGER PRIMARY KEY AUTOINCREMENT,
   sequenceID INTEGER NOT NULL,
   groupID VARCHAR(255) NOT NULL,
-  FOREIGN KEY(sequenceSetID) REFERENCES sequence(ID),
+  FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
+  PRIMARY KEY(sequenceID,groupID)
+);
+
+CREATE TABLE panTranscriptomeGroupRepresentative (
+  ID INTEGER PRIMARY KEY AUTOINCREMENT,
+  sequenceID INTEGER NOT NULL,
+  groupID VARCHAR(255) NOT NULL,
+  FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
   PRIMARY KEY(sequenceID,groupID)
 );
