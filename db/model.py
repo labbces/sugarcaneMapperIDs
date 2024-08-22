@@ -43,15 +43,32 @@ class SequenceSet(BaseModel):
 #   ID INTEGER PRIMARY KEY AUTOINCREMENT,
 #   nameSet VARCHAR(255) NOT NULL UNIQUE,
 #   );
+# CREATE INDEX idx_nameSet ON sequenceSet(nameSet);
     ID = PrimaryKeyField()
     nameSet = CharField(unique=True)
 
     class Meta:
         db_table = 'sequenceSet'
 
-#Lsits of models
-tables=[Sequence, SequenceSet]
+#Link the sequence to the SequenceSets
+class Sequence2sequenceSet(BaseModel):
+# Create a class based on the following table definition:
+# CREATE TABLE sequence2sequenceSet (
+#   sequenceID INTEGER NOT NULL,
+#   sequenceSetID INTEGER NOT NULL
+#   PRIMARY KEY(sequenceID,sequenceSetID),
+#   FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
+#   FOREIGN KEY (sequenceSetID) REFERENCES sequenceSet(ID)
+# );
+    sequenceID = ForeignKeyField(Sequence, field='ID')
+    sequenceSetID = ForeignKeyField(SequenceSet, field='ID')
 
+    class Meta:
+        db_table = 'sequence2sequenceSet'
+        primary_key = CompositeKey('sequenceID', 'sequenceSetID')
+
+#List of models
+tables=[Sequence, SequenceSet, Sequence2sequenceSet]
 
 db.connect()
 
