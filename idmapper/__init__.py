@@ -24,8 +24,8 @@ def create_app(test_config=None):
         pass
 
     # a simple page that says hello
-    @app.route('/hello')
+    @app.route('/idMapperConektGrasses')
     def hello():
-        return 'Hello, World!'
+        return 'Welcome to the IDMapper for Conekt Grasses'
 
     return app
