@@ -28,3 +28,11 @@ CREATE TABLE sequence2sequenceSet (
   FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
   FOREIGN KEY (sequenceSetID) REFERENCES sequenceSet(ID)
 );
+
+CREATE TABLE panTranscriptome (
+  ID INTEGER PRIMARY KEY AUTOINCREMENT,
+  sequenceID INTEGER NOT NULL,
+  groupID VARCHAR(255) NOT NULL,
+  FOREIGN KEY(sequenceSetID) REFERENCES sequence(ID),
+  PRIMARY KEY(sequenceID,groupID)
+);
