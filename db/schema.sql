@@ -9,7 +9,7 @@ CREATE TABLE seq(
   sequenceIdentifier VARCHAR(255) NOT NULL,
   sequenceVersion INTEGER NOT NULL,
   sequenceType VARCHAR(255) CHECK ( sequenceType IN ('DNA', 'Protein') ) NOT NULL DEFAULT 'DNA',
-  sequence TEXT NOT NULL,
+  sequence TEXT NULL,
   CONSTRAINT uniqueSequenceIdVersionType UNIQUE(sequenceIdentifier,sequenceVersion,sequenceType) ON CONFLICT ABORT
 );
 

@@ -1,3 +1,4 @@
+# models.py
 from peewee import *
 
 # Creating the database
@@ -16,7 +17,7 @@ class Sequence(BaseModel):
     sequenceIdentifier = CharField(index=True)
     sequenceVersion = IntegerField(default=1)
     sequenceType = CharField(max_length=255, default='DNA', constraints=[SQL('CHECK( sequenceType IN ("DNA", "Protein"))')])
-    sequence = TextField()
+    sequence = TextField(null=True)
 
     class Meta:
         db_table = 'seq'
@@ -56,10 +57,7 @@ tables = [Sequence, SequenceSet, Sequence2Set, panTranscriptomeGroup]
 db.connect()
 
 try:
-    # Create all tables with foreign key constraints in place
-    # db.create_tables(tables)
-    # print("Tables created successfully!")
-    #For some reason the code below is notg working. When it tries to create the last table it fails, seem to think that a referenced table is not present.    
+    #The following block does not work for the table panTranscriptomeGroup. So it is better to create the tables in advance using SQL (schema.sql, see README)
     for table in tables:
         if not table.table_exists():
             db.create_tables([table])
