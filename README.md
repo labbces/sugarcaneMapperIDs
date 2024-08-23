@@ -8,6 +8,6 @@ pip install peewee
 
 ## Installing DB schema
 
-```sql
+```bash
 cat db/schema.sql | sqlite3 sugarcaneSequences.db
 ```
