@@ -3,6 +3,7 @@
 *.pyc
 sugarcaneSequences.db
 *.db-journal
+FILES_PANTRANSCRIPTOME/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
