@@ -19,7 +19,7 @@ class Sequence(BaseModel):
     sequence = TextField()
 
     class Meta:
-        db_table = 'sequence'
+        db_table = 'seq'
         constraints = [SQL('CONSTRAINT uniqueSequenceIdVersionType UNIQUE(sequenceIdentifier,sequenceVersion,sequenceType) ON CONFLICT ABORT')]
 
 # The SequenceSet table stores the name of the sets of sequences
@@ -31,12 +31,12 @@ class SequenceSet(BaseModel):
         db_table = 'sequenceSet'
 
 # Link the sequence to the SequenceSets
-class Sequence2sequenceSet(BaseModel):
+class Sequence2Set(BaseModel):
     sequenceID = ForeignKeyField(Sequence, backref='sequence2sets', on_delete='CASCADE')
     sequenceSetID = ForeignKeyField(SequenceSet, backref='sequence2sets', on_delete='CASCADE')
 
     class Meta:
-        db_table = 'sequence2sequenceSet'
+        db_table = 'sequence2Set'
         primary_key = CompositeKey('sequenceID', 'sequenceSetID')
 
 # The panTranscriptomeGroup table stores the groups of sequences
@@ -51,7 +51,7 @@ class panTranscriptomeGroup(BaseModel):
         constraints = [SQL('CONSTRAINT uniqueSequenceIdGroupId UNIQUE(sequenceID,groupID)')]
 
 # List of models
-tables = [Sequence, SequenceSet, Sequence2sequenceSet, panTranscriptomeGroup]
+tables = [Sequence, SequenceSet, Sequence2Set, panTranscriptomeGroup]
 
 db.connect()
 

@@ -5,3 +5,9 @@ The goal of this app is to given a DNA or protein sequence for sugarcane map it 
 ## Required software
 pip install flask
 pip install peewee
+
+## Installing DB schema
+
+```sql
+cat db/schema.sql | sqlite3 sugarcaneSequences.db
+```

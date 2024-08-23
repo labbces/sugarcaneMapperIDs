@@ -1,46 +1,51 @@
+PRAGMA foreign_keys = ON;
+PRAGMA ignore_check_constraints = OFF;
 DROP TABLE IF EXISTS sequence;
 DROP TABLE IF EXISTS sequenceSet;
 DROP TABLE IF EXISTS sequence2sequenceSet;
 
-CREATE TABLE sequence(
+CREATE TABLE seq(
   ID INTEGER PRIMARY KEY AUTOINCREMENT,
   sequenceIdentifier VARCHAR(255) NOT NULL,
   sequenceVersion INTEGER NOT NULL,
   sequenceType VARCHAR(255) CHECK ( sequenceType IN ('DNA', 'Protein') ) NOT NULL DEFAULT 'DNA',
   sequence TEXT NOT NULL,
-  CONSTRAINT uniqueSequenceIdVersionType,
-  UNIQUE(sequenceIdentifier,sequenceVersion,sequenceType) ON CONFLICT ABORT
+  CONSTRAINT uniqueSequenceIdVersionType UNIQUE(sequenceIdentifier,sequenceVersion,sequenceType) ON CONFLICT ABORT
 );
-
-CREATE INDEX idx_sequenceIdentifier ON sequence(sequenceIdentifier);
 
 CREATE TABLE sequenceSet (
-  ID INTEGER PRIMARY KEY AUTOINCREMENT,
-  nameSet VARCHAR(255) NOT NULL UNIQUE,
+  seID INTEGER PRIMARY KEY AUTOINCREMENT,
+  nameSet VARCHAR(255) NOT NULL UNIQUE
 );
 
-CREATE INDEX idx_nameSet ON sequenceSet(nameSet);
-
-CREATE TABLE sequence2sequenceSet (
+CREATE TABLE sequence2set (
   sequenceID INTEGER NOT NULL,
-  sequenceSetID INTEGER NOT NULL
-  PRIMARY KEY(sequenceID,sequenceSetID),
-  FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
-  FOREIGN KEY (sequenceSetID) REFERENCES sequenceSet(ID)
+  seID INTEGER NOT NULL,
+  PRIMARY KEY(sequenceID,seID),
+  FOREIGN KEY(sequenceID) REFERENCES seq(ID),
+  FOREIGN KEY (seID) REFERENCES sequenceSet(seID)
 );
 
 CREATE TABLE panTranscriptomeGroup (
   ID INTEGER PRIMARY KEY AUTOINCREMENT,
   sequenceID INTEGER NOT NULL,
   groupID VARCHAR(255) NOT NULL,
-  FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
-  PRIMARY KEY(sequenceID,groupID)
+  representative BOOLEAN NOT NULL DEFAULT 0,
+  FOREIGN KEY(sequenceID) REFERENCES seq(ID),
+  UNIQUE (sequenceID,groupID)
 );
 
-CREATE TABLE panTranscriptomeGroupRepresentative (
-  ID INTEGER PRIMARY KEY AUTOINCREMENT,
-  sequenceID INTEGER NOT NULL,
-  groupID VARCHAR(255) NOT NULL,
-  FOREIGN KEY(sequenceID) REFERENCES sequence(ID),
-  PRIMARY KEY(sequenceID,groupID)
-);
+INSERT INTO seq (sequenceIdentifier, sequenceVersion, sequenceType, sequence) VALUES ('ppppp2', 1, 'DNA', 'acacacacacacacac');
+INSERT INTO seq (sequenceIdentifier, sequenceVersion, sequenceType, sequence) VALUES ('ppppp2', 2, 'DNA', 'atacacacacacacac');
+INSERT INTO seq (sequenceIdentifier, sequenceVersion, sequenceType, sequence) VALUES ('ppppp1', 1, 'DNA', 'atgcacacacacacac');
+
+INSERT INTO sequenceSet (nameSet) VALUES ('set1');
+INSERT INTO sequenceSet (nameSet) VALUES ('set2');
+
+INSERT INTO sequence2set (sequenceID, seID) VALUES (1, 1);
+INSERT INTO sequence2set (sequenceID, seID) VALUES (2, 2);
+INSERT INTO sequence2set (sequenceID, seID) VALUES (3, 1);
+
+INSERT INTO panTranscriptomeGroup (sequenceID, groupID, representative) VALUES (1, 'group1', 1);
+INSERT INTO panTranscriptomeGroup (sequenceID, groupID, representative) VALUES (3, 'group1', 0);
+INSERT INTO panTranscriptomeGroup (sequenceID, groupID, representative) VALUES (2, 'group2', 1);
