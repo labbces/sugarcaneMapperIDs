@@ -57,15 +57,15 @@ db.connect()
 
 try:
     # Create all tables with foreign key constraints in place
-    db.create_tables(tables)
-    print("Tables created successfully!")
+    # db.create_tables(tables)
+    # print("Tables created successfully!")
     #For some reason the code below is notg working. When it tries to create the last table it fails, seem to think that a referenced table is not present.    
-    # for table in tables:
-    #     if not table.table_exists():
-    #         db.create_tables([table])
-    #         print(f"Table '{table.__name__}' created succesfully!")
-    #     else:
-    #         print(f"Table '{table.__name__}' already exists!")
+    for table in tables:
+        if not table.table_exists():
+            db.create_tables([table])
+            print(f"Table '{table.__name__}' created succesfully!")
+        else:
+            print(f"Table '{table.__name__}' already exists!")
 except OperationalError as e:
     print(f"Error occurred while creating the tables: {e}")
 except Exception as e:
