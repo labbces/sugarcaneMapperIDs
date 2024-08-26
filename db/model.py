@@ -13,15 +13,17 @@ class BaseModel(Model):
 
 # The Sequence table stores DNA (gene, transcript, and CDS) and protein sequences
 class Sequence(BaseModel):
-    sequenceID = PrimaryKeyField()
+    ID = PrimaryKeyField()
     sequenceIdentifier = CharField(index=True)
     sequenceVersion = IntegerField(default=1)
-    sequenceType = CharField(max_length=255, default='DNA', constraints=[SQL('CHECK( sequenceType IN ("DNA", "Protein"))')])
+    sequenceType = CharField(max_length=255, default='DNA', constraints=[SQL('CHECK( sequenceType IN ("DNA", "Amino acid"))')])
+    sequenceClass = CharField(max_length=255, null=False, default='gene', constraints=[SQL('CHECK( sequenceClass IN ("gene", "transcript", "CDS", "protein"))')])
+    sequenceLength = IntegerField(null=False)
     sequence = TextField(null=True)
 
     class Meta:
         db_table = 'seq'
-        constraints = [SQL('CONSTRAINT uniqueSequenceIdVersionType UNIQUE(sequenceIdentifier,sequenceVersion,sequenceType) ON CONFLICT ABORT')]
+        constraints = [SQL('CONSTRAINT uniqueSequenceIdVersionType UNIQUE(sequenceIdentifier,sequenceVersion,sequenceClass) ON CONFLICT ABORT')]
 
 # The SequenceSet table stores the name of the sets of sequences
 class SequenceSet(BaseModel):
