@@ -27,7 +27,7 @@ class Sequence(BaseModel):
 
 # The SequenceSet table stores the name of the sets of sequences
 class SequenceSet(BaseModel):
-    sequenceSetID = PrimaryKeyField()
+    seID = PrimaryKeyField()
     nameSet = CharField(unique=True)
 
     class Meta:
@@ -35,12 +35,12 @@ class SequenceSet(BaseModel):
 
 # Link the sequence to the SequenceSets
 class Sequence2Set(BaseModel):
-    sequenceID = ForeignKeyField(Sequence, backref='sequence2sets', on_delete='CASCADE')
-    sequenceSetID = ForeignKeyField(SequenceSet, backref='sequence2sets', on_delete='CASCADE')
+    sequenceID = ForeignKeyField(Sequence, column_name='sequenceID', backref='sequence2sets', on_delete='CASCADE')
+    seID = ForeignKeyField(SequenceSet, column_name='seID', backref='sequence2sets', on_delete='CASCADE')
 
     class Meta:
         db_table = 'sequence2Set'
-        primary_key = CompositeKey('sequenceID', 'sequenceSetID')
+        primary_key = CompositeKey('sequenceID', 'seID')
 
 # The panTranscriptomeGroup table stores the groups of sequences
 class panTranscriptomeGroup(BaseModel):
