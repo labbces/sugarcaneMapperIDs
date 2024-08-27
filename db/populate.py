@@ -129,6 +129,7 @@ def process_sequenceFile(fileObj, sequenceClass, sequenceVersion, sequenceType):
                 # If not found, insert it into the database
                 newSeq= insert_new_sequence(sequenceIdentifier, sequenceLength, sequenceType, sequence, sequenceClass, sequenceVersion)
                 insert_new_Sequence2Set(newSeq.ID, setId)
+                
 # Read the coding sequences
 process_sequenceFile(args.cds, 'ÇDS', 1, 'DNA')
 #Reading the transcript sequences
