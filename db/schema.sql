@@ -1,5 +1,7 @@
 PRAGMA foreign_keys = ON;
 PRAGMA ignore_check_constraints = OFF;
+PRAGMA journal_mode=WAL;
+
 DROP TABLE IF EXISTS sequence;
 DROP TABLE IF EXISTS sequenceSet;
 DROP TABLE IF EXISTS sequence2sequenceSet;
