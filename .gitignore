@@ -4,6 +4,8 @@
 sugarcaneSequences.db
 *.db-journal
 FILES_PANTRANSCRIPTOME/*
+*.db-wal
+*.db-shm
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
