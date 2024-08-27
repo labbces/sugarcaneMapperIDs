@@ -15,6 +15,14 @@ pip install peewee
 
 ## Installing DB schema
 
+The schema is available as SQL, and can be used to initialized the database in the following way:
+
 ```bash
 cat db/schema.sql | sqlite3 sugarcaneSequences.db
+```
+
+The model.py also knows how to implement the schema, and hte preferred way to initialize the database is the following:
+
+```bash
+python3 db/model.py
 ```
