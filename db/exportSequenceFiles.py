@@ -22,4 +22,4 @@ for set in sets:
         with open(f"{basename}_{ext}.{sequenceClassExt[ext]}", 'w') as f:
             for seq in Sequence.select().join(Sequence2Set).join(SequenceSet).where(SequenceSet.nameSet==set.nameSet, Sequence.sequenceClass==ext, Sequence.sequenceVersion==1):
                 og=panTranscriptomeGroup.select(panTranscriptomeGroup.groupID,panTranscriptomeGroup.representative).where(panTranscriptomeGroup.sequenceID==seq.ID).first()
-                f.write(f">{seq.sequenceIdentifier} OG={og.groupID}\n{seq.sequence}\n")
+                f.write(f">{seq.sequenceIdentifier} OG={og.groupID} representative={og.representative}\n{seq.sequence}\n")
