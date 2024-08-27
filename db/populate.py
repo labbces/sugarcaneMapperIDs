@@ -42,7 +42,7 @@ def check_existing_set(sequenceSet):
                     )
 
 def insert_new_set(sequenceSet):
-    SequenceSet.create(
+    return SequenceSet.create(
         nameSet=sequenceSet
     )
 
@@ -75,6 +75,7 @@ def get_set_id(sequenceIdentifier):
     sequenceSet=get_set(sequenceIdentifier)
     existing_set=check_existing_set(sequenceSet)
     if not existing_set:
+        # print(f'Inserting new set: {sequenceSet}')
         set = insert_new_set(sequenceSet)
     else:
         set = existing_set
