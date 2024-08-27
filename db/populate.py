@@ -10,7 +10,8 @@ parser = argparse.ArgumentParser(description='Populate the database with sequenc
 parser.add_argument('--cds', type=argparse.FileType('r'), required=True, help='The file containing the coding sequences')
 parser.add_argument('--proteins', type=argparse.FileType('r'), required=True, help='The file containing the protein sequences')
 parser.add_argument('--transcripts', type=argparse.FileType('r'), required=True, help='The file containing the transcript sequences')
-parser.add_argument('--orthogroup_members', type=argparse.FileType('r'), help='The file containing the orthogroup members')
+parser.add_argument('--orthogroup_members', type=argparse.FileType('r'), required=True, help='The file containing the orthogroup members')
+parser.add_argument('--orthogroup_representative', type=argparse.FileType('r'), required=True, help='The file containing the sequence IDs of representative for each orthogroup')
 args = parser.parse_args()
 
 if len(sys.argv) == 1:
@@ -129,10 +130,32 @@ def process_sequenceFile(fileObj, sequenceClass, sequenceVersion, sequenceType):
                 # If not found, insert it into the database
                 newSeq= insert_new_sequence(sequenceIdentifier, sequenceLength, sequenceType, sequence, sequenceClass, sequenceVersion)
                 insert_new_Sequence2Set(newSeq.ID, setId)
-                
-# Read the coding sequences
-process_sequenceFile(args.cds, 'ÇDS', 1, 'DNA')
-#Reading the transcript sequences
-process_sequenceFile(args.transcripts, 'transcript', 1, 'DNA')
+
+def process_orthogroups_file(infile):
+    representatives={}
+    print(f'Processing {infile.name}...')
+    for line in args.orthogroup_representative:
+        line = line.strip()
+        sequenceIdentifier = line.split()[0]
+        representatives[sequenceIdentifier]=True
+
+    for line in infile:
+        line = line.strip()
+        (orthogroup, sequenceIdentifier) = line.split('\t')
+        if not orthogroup.startswith('OG'):
+            print(f"Invalid orthogroup: {orthogroup}", file=sys.stderr)
+        seq = Sequence.get_or_none(Sequence.sequenceIdentifier == sequenceIdentifier, Sequence.sequenceClass == 'protein', Sequence.sequenceVersion == 1)
+        if seq:
+            if sequenceIdentifier in representatives:
+                panTranscriptomeGroup.create(sequenceID=seq.ID, groupID=orthogroup, representative=1)
+            else:
+                panTranscriptomeGroup.create(sequenceID=seq.ID, groupID=orthogroup, representative=0)
+        # print(f'{orthogroup}: {sequenceIdentifier}')
 #Reading the protein sequences
 process_sequenceFile(args.proteins, 'protein', 1, 'Amino acid')
+# Read orthogroup members
+process_orthogroups_file(args.orthogroup_members)    
+# # Read the coding sequences
+process_sequenceFile(args.cds, 'CDS', 1, 'DNA')
+# #Reading the transcript sequences
+process_sequenceFile(args.transcripts, 'transcript', 1, 'DNA')
