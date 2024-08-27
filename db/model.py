@@ -45,7 +45,7 @@ class Sequence2Set(BaseModel):
 # The panTranscriptomeGroup table stores the groups of sequences
 class panTranscriptomeGroup(BaseModel):
     panTranscriptomeGroupID = PrimaryKeyField()
-    sequenceID = ForeignKeyField(Sequence, backref='pantranscriptome_groups', on_delete='CASCADE')
+    sequenceID = ForeignKeyField(Sequence, column_name='sequenceID', backref='pantranscriptome_groups', on_delete='CASCADE')
     groupID = CharField()
     representative = BooleanField(default=False)
 
@@ -59,7 +59,6 @@ tables = [Sequence, SequenceSet, Sequence2Set, panTranscriptomeGroup]
 db.connect()
 
 try:
-    #The following block does not work for the table panTranscriptomeGroup. So it is better to create the tables in advance using SQL (schema.sql, see README)
     for table in tables:
         if not table.table_exists():
             db.create_tables([table])
