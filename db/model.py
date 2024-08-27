@@ -5,6 +5,7 @@ from peewee import *
 db = SqliteDatabase('sugarcaneSequences.db', pragmas={
     'foreign_keys': 1,  # Enforce foreign-key constraints
     'ignore_check_constraints': 0,  # Enforce CHECK constraints
+    'journal_mode':'WAL'  # Use WAL mode for better concurrency,
 })
 
 class BaseModel(Model):
