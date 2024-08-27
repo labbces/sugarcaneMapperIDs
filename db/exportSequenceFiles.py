@@ -23,3 +23,6 @@ for set in sets:
             for seq in Sequence.select().join(Sequence2Set).join(SequenceSet).where(SequenceSet.nameSet==set.nameSet, Sequence.sequenceClass==ext, Sequence.sequenceVersion==1):
                 og=panTranscriptomeGroup.select(panTranscriptomeGroup.groupID,panTranscriptomeGroup.representative).where(panTranscriptomeGroup.sequenceID==seq.ID).first()
                 f.write(f">{seq.sequenceIdentifier} OG={og.groupID} representative={og.representative}\n{seq.sequence}\n")
+        with open(f"{basename}_representative_{ext}.{sequenceClassExt[ext]}", 'w') as f2:
+            for seq in Sequence.select().join(Sequence2Set).join(SequenceSet).join(panTranscriptomeGroup).where(SequenceSet.nameSet==set.nameSet, Sequence.sequenceClass==ext, Sequence.sequenceVersion==1, panTranscriptomeGroup.representative==1):
+                f2.write(f">{seq.sequenceIdentifier} OG={og.groupID} representative={og.representative}\n{seq.sequence}\n")
