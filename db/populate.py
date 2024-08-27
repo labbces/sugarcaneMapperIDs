@@ -7,9 +7,9 @@ import re
 
 #initialize the parser 
 parser = argparse.ArgumentParser(description='Populate the database with sequences and orthogroups')
-parser.add_argument('--cds', type=argparse.FileType('r'), help='The file containing the coding sequences')
-parser.add_argument('--proteins', type=argparse.FileType('r'), help='The file containing the protein sequences')
-parser.add_argument('--transcripts', type=argparse.FileType('r'), help='The file containing the transcript sequences')
+parser.add_argument('--cds', type=argparse.FileType('r'), required=True, help='The file containing the coding sequences')
+parser.add_argument('--proteins', type=argparse.FileType('r'), required=True, help='The file containing the protein sequences')
+parser.add_argument('--transcripts', type=argparse.FileType('r'), required=True, help='The file containing the transcript sequences')
 parser.add_argument('--orthogroup_members', type=argparse.FileType('r'), help='The file containing the orthogroup members')
 args = parser.parse_args()
 
@@ -130,22 +130,8 @@ def process_sequenceFile(fileObj, sequenceClass, sequenceVersion, sequenceType):
                 newSeq= insert_new_sequence(sequenceIdentifier, sequenceLength, sequenceType, sequence, sequenceClass, sequenceVersion)
                 insert_new_Sequence2Set(newSeq.ID, setId)
 # Read the coding sequences
-if args.cds:
-    sequenceClass = 'CDS'
-    sequenceVersion = 1
-    sequenceType='DNA'
-    process_sequenceFile(args.cds, sequenceClass, sequenceVersion, sequenceType)
-
+process_sequenceFile(args.cds, 'ÇDS', 1, 'DNA')
 #Reading the transcript sequences
-if args.transcripts:
-    sequenceClass = 'transcript'
-    sequenceVersion = 1
-    sequenceType='DNA'
-    process_sequenceFile(args.transcripts, sequenceClass, sequenceVersion, sequenceType)
-
+process_sequenceFile(args.transcripts, 'transcript', 1, 'DNA')
 #Reading the protein sequences
-if args.proteins:
-    sequenceClass = 'protein'
-    sequenceVersion = 1
-    sequenceType='Amino acid'
-    process_sequenceFile(args.proteins, sequenceClass, sequenceVersion, sequenceType)
+process_sequenceFile(args.proteins, 'protein', 1, 'Amino acid')
