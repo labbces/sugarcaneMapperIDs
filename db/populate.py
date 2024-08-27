@@ -73,7 +73,6 @@ def get_set(sequenceIdentifier):
 
 def get_set_id(sequenceIdentifier):
     sequenceSet=get_set(sequenceIdentifier)
-    # print(sequenceSet)
     existing_set=check_existing_set(sequenceSet)
     if not existing_set:
         set = insert_new_set(sequenceSet)
@@ -151,6 +150,7 @@ def process_orthogroups_file(infile):
             else:
                 panTranscriptomeGroup.create(sequenceID=seq.ID, groupID=orthogroup, representative=0)
         # print(f'{orthogroup}: {sequenceIdentifier}')
+
 #Reading the protein sequences
 process_sequenceFile(args.proteins, 'protein', 1, 'Amino acid')
 # Read orthogroup members
