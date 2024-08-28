@@ -1,9 +1,13 @@
 # populate.py
 
-from model import Sequence, Sequence2Set, SequenceSet, panTranscriptomeGroup
-import argparse
 import sys
+import argparse
 import re
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from db.model import Sequence, Sequence2Set, SequenceSet, panTranscriptomeGroup
+
 
 #initialize the parser 
 parser = argparse.ArgumentParser(description='Populate the database with sequences and orthogroups')
