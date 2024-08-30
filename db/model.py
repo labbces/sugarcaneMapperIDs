@@ -1,5 +1,13 @@
 # models.py
 from peewee import *
+import logging
+
+#The following in order to print all SQL statements executed by Peewee
+#Start of the logging configuration
+# logger = logging.getLogger('peewee')
+# logger.addHandler(logging.StreamHandler())
+# logger.setLevel(logging.DEBUG)
+#End of the logging configuration
 
 # Creating the database
 db = SqliteDatabase('sugarcaneSequences.db', pragmas={
