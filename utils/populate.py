@@ -4,6 +4,8 @@ import sys
 import argparse
 import re
 import os
+from Bio import SeqIO
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from db.model import Sequence, Sequence2Set, SequenceSet, panTranscriptomeGroup
@@ -95,36 +97,12 @@ def process_sequenceFile(fileObj, sequenceClass, sequenceVersion, sequenceType):
     sequence = ''
     sequenceIdentifier = None
     print(f'Processing {fileObj.name}... sequenceClass: {sequenceClass}, sequenceVersion: {sequenceVersion}, sequenceType: {sequenceType}')
-    with open (fileObj.name) as cds:
-        for line in cds:
-            line = line.strip()
-            if line.startswith('>'):
-                # Reset for the new sequence
-                sequenceIdentifier = line.split()[0][1:]
-                # If a sequence is already accumulated, insert it before processing the next one
-                if sequenceIdentifier and sequence:
-                    sequenceLength = len(sequence)
-                    # print(sequenceIdentifier)
-                    setId=get_set_id(sequenceIdentifier)
-                    # print(f'setid:{setId}')
+    with open (fileObj.name) as seqHdl:
+        for record in SeqIO.parse(seqHdl, "fasta"):
+            sequenceIdentifier = record.id
+            sequenceLength = len(record.seq)
+            sequence = str(record.seq)
 
-                    # Check if the sequence is already stored in the database
-                    existing_sequence = check_existing_sequence(sequenceIdentifier, sequenceClass, sequenceVersion)
-
-                    if not existing_sequence:
-                        # If not found, insert it into the database
-                        newSeq= insert_new_sequence(sequenceIdentifier, sequenceLength, sequenceType, sequence, sequenceClass, sequenceVersion)
-                        # print(f'New seq: {newSeq.ID}; Identifier={sequenceIdentifier}; setID={setId}')
-                        insert_new_Sequence2Set(newSeq.ID, setId)
-         
-                #initialize sequence as blank string when a new identifier is found
-                sequence = ''
-            else:
-                sequence += line
-
-        # Don't forget to insert the last sequence after exiting the loop
-        if sequenceIdentifier and sequence:
-            sequenceLength = len(sequence)
             setId=get_set_id(sequenceIdentifier)
 
             # Check if the sequence is already stored in the database
@@ -134,7 +112,7 @@ def process_sequenceFile(fileObj, sequenceClass, sequenceVersion, sequenceType):
                 # If not found, insert it into the database
                 newSeq= insert_new_sequence(sequenceIdentifier, sequenceLength, sequenceType, sequence, sequenceClass, sequenceVersion)
                 insert_new_Sequence2Set(newSeq.ID, setId)
-
+        
 def process_orthogroups_file(infile):
     representatives={}
     print(f'Processing {infile.name}...')
