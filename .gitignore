@@ -6,6 +6,7 @@ sugarcaneSequences.db
 FILES_PANTRANSCRIPTOME/*
 *.db-wal
 *.db-shm
+*.fasta
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
