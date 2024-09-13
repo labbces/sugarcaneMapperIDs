@@ -1,84 +1,102 @@
-# extractSeqs.py
-
 import sys
 import argparse
-import re
+#import re
 import os
-from Bio import SeqIO
+import logging
+#from Bio import SeqIO
+from peewee import fn
+import gzip
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from db.model import Sequence, panTranscriptomeGroup
+
+# Get the current process ID
 current_pid = os.getpid()
 
-from db.model import Sequence, Sequence2Set, SequenceSet, panTranscriptomeGroup
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-#initialize the parser 
+# Initialize the parser
 parser = argparse.ArgumentParser(description='Extract sequences from the database')
-parser.add_argument('--cds', action='store_true', help='Boolean - Extract CDD sequences')
+parser.add_argument('--cds', action='store_true', help='Boolean - Extract CDS sequences')
 parser.add_argument('--proteins', action='store_true', help='Boolean - Extract Protein sequences')
 parser.add_argument('--transcripts', action='store_true', help='Boolean - Extract Transcript sequences')
 parser.add_argument('--genes', action='store_true', help='Boolean - Extract Gene sequences')
-parser.add_argument('--representatives', action='store_true', help='Boolean - Extract only Representative sequences, at least one fof --cds, --proteins, or --transcripts must be specified')
+parser.add_argument('--representatives', action='store_true', help='Boolean - Extract only Representative sequences, at least one of --cds, --proteins, or --transcripts must be specified')
 parser.add_argument('--prefix', type=str, required=True, help='Prefix to be used to create output files')
+parser.add_argument('--gzip', action='store_true', help='Save output in gzip-compressed FASTA format')
 args = parser.parse_args()
 
+# Argument validation
 if len(sys.argv) == 1:
     parser.print_help()
     sys.exit(1)
 
 if args.representatives and not (args.cds or args.proteins or args.transcripts):
-    print("At least one of --cds, --proteins, or --transcripts must be specified when using --representatives")
+    logging.error("At least one of --cds, --proteins, or --transcripts must be specified when using --representatives")
     sys.exit(1)
 
-if not (args.cds or args.proteins or args.transcripts):
-    print("At least one of --cds, --proteins, or --transcripts must be specified")
+if not (args.cds or args.proteins or args.transcripts or args.genes):
+    logging.error("At least one of --cds, --proteins, or --transcripts, or --genes must be specified")
     sys.exit(1)
 
-sequenceClasses=[]
-
+# Create a list of sequence classes to process
+sequence_classes = []
 if args.cds:
-    sequenceClasses.append('CDS')
+    sequence_classes.append('CDS')
 if args.proteins:
-    sequenceClasses.append('protein')
+    sequence_classes.append('protein')
 if args.transcripts:
-    sequenceClasses.append('transcript')
+    sequence_classes.append('transcript')
 if args.genes:
-    sequenceClasses.append('gene')
+    sequence_classes.append('gene')
 
-for sequenceClass in sequenceClasses:
+# Function to extract sequences and write to a FASTA file
+def extract_sequences(sequence_class, representative, output_file):
     page_size = 100000
     page_number = 1
     has_more_results = True
+
     while has_more_results:
-        print(f'M1. Extracting {sequenceClass} sequences', file=sys.stdout)
-        outfile=f'{args.prefix}_{sequenceClass}_{current_pid}'
-        sequences = Sequence.select(Sequence.sequenceIdentifier,Sequence.sequence).where(Sequence.sequenceClass == sequenceClass).paginate(page_number, page_size)
-        if args.representatives and args.proteins:
-            print(f'M2. Extracting only representatives for {sequenceClass} sequences', file=sys.stdout)
-            outfile=f'{outfile}_representatives'
-            sequences = sequences.join(panTranscriptomeGroup, on=(Sequence.ID == panTranscriptomeGroup.sequenceID)).where(panTranscriptomeGroup.representative == True)
-        elif args.representatives and (args.cds or args.transcripts or args.genes):
-            print(f'M3. Extracting only representatives for {sequenceClass} sequences', file=sys.stdout)
-            outfile=f'{outfile}_representatives'
+        logging.info(f'M1. Extracting {sequence_class} sequences')
+
+        query = Sequence.select(Sequence.sequenceIdentifier, Sequence.sequence).where(Sequence.sequenceClass == sequence_class)
+
+        # Apply representative filter if necessary
+        if representative and sequence_class != 'protein':
+            logging.info(f'M2. Filtering by representative sequences for {sequence_class}')
             subquery = (Sequence
-                    .select(Sequence.sequenceIdentifier)
-                    .join(panTranscriptomeGroup, on=(Sequence.ID == panTranscriptomeGroup.sequenceID))
-                    .where(panTranscriptomeGroup.representative == True))
-            query = (Sequence
-                .select(Sequence.sequenceIdentifier,Sequence.sequence)
-                .where(
-                    (Sequence.sequenceClass == sequenceClass) &
-                    (Sequence.sequenceIdentifier.in_(subquery))
-                )
-                .paginate(page_number, page_size))
-            sequences = query.execute()
-            
-        outfile=f'{outfile}.fasta'
-        
+                        .select(Sequence.sequenceIdentifier)
+                        .join(panTranscriptomeGroup, on=(Sequence.ID == panTranscriptomeGroup.sequenceID))
+                        .where(panTranscriptomeGroup.representative == True))
+            query = query.where(Sequence.sequenceIdentifier.in_(subquery)).paginate(page_number, page_size)
+        elif representative and sequence_class == 'protein':
+            logging.info(f'M3. Filtering by representative sequences for {sequence_class}')
+            query = query.join(panTranscriptomeGroup, on=(Sequence.ID == panTranscriptomeGroup.sequenceID)).where(panTranscriptomeGroup.representative == True).paginate(page_number, page_size)
+        else:
+            query = query.paginate(page_number, page_size)
+
+        sequences = query.execute()
+
         if not sequences:
             has_more_results = False
         else:
-            with open(outfile, 'a') as f:
-                for sequence in sequences:        
-                    f.write(f'>{sequence.sequenceIdentifier}\n{sequence.sequence}\n')
+            with (gzip.open(output_file, 'at') if args.gzip else open(output_file, 'a')) as fasta_file:
+                for sequence in sequences:
+                    fasta_file.write(f'>{sequence.sequenceIdentifier}\n{sequence.sequence}\n')
+                    fasta_file.flush()
             page_number += 1
+
+# Loop over sequence classes and extract the corresponding sequences
+for sequence_class in sequence_classes:
+    outfile = f"{args.prefix}_{sequence_class}_{current_pid}"
+    if args.representatives:
+        outfile += '_representatives'
+    
+    # Add .fasta or .fasta.gz extension based on gzip flag
+    outfile += '.fasta.gz' if args.gzip else '.fasta'
+
+    extract_sequences(sequence_class, args.representatives, outfile)
+
+logging.info("Sequence extraction completed.")
