@@ -1,6 +1,8 @@
 import os
 
-from flask import Flask
+from flask import Flask, render_template, g
+from markupsafe import escape
+from idmapper.models import db, Sequence, panTranscriptomeGroup
 
 def create_app(test_config=None):
     # create and configure the app
@@ -23,9 +25,30 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    # Connect to the database at the start of each request
+    @app.before_request
+    def before_request():
+        g.db = db
+        if g.db.is_closed():
+            g.db.connect()
+
+    # Close the database after the request
+    @app.teardown_request
+    def teardown_request(exception=None):
+        if not g.db.is_closed():
+            g.db.close()
+            
     # a simple page that says hello
-    @app.route('/idMapperConektGrasses')
-    def hello():
+    @app.route('/')
+    def index():
         return 'Welcome to the IDMapper for Conekt Grasses'
+
+    @app.route('/mapid/<id>')
+    def mapid(id=None):
+        try:
+            sequence = Sequence.get(Sequence.sequenceIdentifier == id)
+            return render_template('idmap.html', identifier=sequence)
+        except Sequence.DoesNotExist:
+            return f"No sequence found with ID: {id}", 404
 
     return app
