@@ -1,7 +1,242 @@
 <!doctype html>
-<title>Hello from Flask</title>
-{% if identifier %}
-  <h1>Hello {{ identifier }}!</h1>
+<html lang=en-us>
+  <head>
+    <meta charset=utf-8>
+    <meta name=viewport content="width=device-width,initial-scale=1">
+    <meta http-equiv=x-ua-compatible content="IE=edge">
+    <meta name=generator content="sugarcaneMapperIDs">
+    <meta name=author content="Diego Mauricio Riaño-Pachón">
+    <meta name=description content="Computational, Evolutionary and Systems Biology Research Group">
+    <link rel=alternate hreflang=en-us href=http://labbces.cena.usp.br/>
+    <meta name=theme-color content="rgb(0, 136, 204)">
+    <link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/academicons/1.9.0/css/academicons.min.css integrity="sha512-W4yqoT1+8NLkinBLBZko+dFB2ZbHsYLDdr50VElllRcNt2Q4/GSs6u71UHKxB7S6JEMCp5Ve4xjh3eGQl/HRvg==" crossorigin=anonymous>
+    <link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css integrity="sha256-FMvZuGapsJLjouA6k7Eo2lusoAX9i0ShlWFG6qt7SLc=" crossorigin=anonymous>
+    <link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css integrity="sha256-Vzbj7sDDS/woiFS3uNKo8eIuni59rjyNGtXfstRzStA=" crossorigin=anonymous media=print onload="this.media='all'">
+    <link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.css integrity="sha512-1xoFisiGdy9nvho8EgXuXvnpR5GAMSjFwp40gSRE3NwdUdIMIKuPa7bqoUhLD0O/5tPNhteAsE5XyyMi5reQVA==" crossorigin=anonymous media=print onload="this.media='all'">
+    <link rel=stylesheet href=http://labbces.cena.usp.br//css/wowchemy.663f760f057c24e84dba1f1fb41072b6.css>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-6EGSSFHG5D"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}function trackOutboundLink(a,b){gtag('event','click',{event_category:'outbound',event_label:a,transport_type:'beacon',event_callback:function(){b!=='_blank'&&(document.location=a)}}),console.debug("Outbound link clicked: "+a)}function onClickCallback(a){if(a.target.tagName!=='A'||a.target.host===window.location.host)return;trackOutboundLink(a.target,a.target.getAttribute('target'))}gtag('js',new Date),gtag('config','G-6EGSSFHG5D',{}),gtag('set',{cookie_flags:'SameSite=None;Secure'}),document.addEventListener('click',onClickCallback,!1)</script>
+    <script>(function(b,d,e,a,g){b[a]=b[a]||[],b[a].push({'gtm.start':(new Date).getTime(),event:'gtm.js'});var f=d.getElementsByTagName(e)[0],c=d.createElement(e),h=a!='dataLayer'?'&l='+a:'';c.async=!0,c.src='https://www.googletagmanager.com/gtm.js?id='+g+h,f.parentNode.insertBefore(c,f)})(window,document,'script','dataLayer','G-6EGSSFHG5D')</script>
+    <script src=https://identity.netlify.com/v1/netlify-identity-widget.js></script>
+    <link rel=alternate href=http://labbces.cena.usp.br//index.xml type=application/rss+xml title=LabBCES>
+    <link rel=manifest href=http://labbces.cena.usp.br//index.webmanifest>
+    <link rel=icon type=image/png href=http://labbces.cena.usp.br//media/icon_huce0f58322822551670f82da3d360b308_88239_32x32_fill_lanczos_center_2.png>
+    <link rel=apple-touch-icon type=image/png href=http://labbces.cena.usp.br//media/icon_huce0f58322822551670f82da3d360b308_88239_180x180_fill_lanczos_center_2.png>
+    <link rel=canonical href=http://labbces.cena.usp.br/>
+    <meta property="twitter:card" content="summary">
+    <meta property="og:site_name" content="LabBCES">
+    <meta property="og:url" content="http://labbces.cena.usp.br/">
+    <meta property="og:title" content="LabBCES">
+    <meta property="og:description" content="Computational, Evolutionary and Systems Biology Research Group">
+    <meta property="og:image" content="http://labbces.cena.usp.br/media/logo_hu4bdaa9ee68286360853798cab7d37789_78789_300x300_fit_lanczos_2.png">
+    <meta property="twitter:image" content="http://labbces.cena.usp.br/media/logo_hu4bdaa9ee68286360853798cab7d37789_78789_300x300_fit_lanczos_2.png">
+    <meta property="og:locale" content="en-us">
+    <meta property="og:updated_time" content="2024-08-30T13:14:22-03:00">
+    <script type=application/ld+json>{"@context":"https://schema.org","@type":"WebSite","potentialAction":{"@type":"SearchAction","target":"http://labbces.cena.usp.br/?q={search_term_string}","query-input":"required name=search_term_string"},"url":"http://labbces.cena.usp.br/"}</script>
+    <script type=application/ld+json>{"@context":"https://schema.org","@type":"Organization","@id":"http://labbces.cena.usp.br/","name":"LabBCES/CENA/USP","logo":"http://labbces.cena.usp.br/media/logo_hu4bdaa9ee68286360853798cab7d37789_78789_192x192_fit_lanczos_2.png","address":{"@type":"PostalAddress","streetAddress":"Avenida Centenário 303","addressLocality":"Piracicaba","addressRegion":"SP","postalCode":"13416-000","addressCountry":"BR"},"telephone":"+55 19 3429 4723","url":"http://labbces.cena.usp.br/"}</script>
+    <title>LabBCES</title>
+  </head>
+  <body id=top data-spy=scroll data-offset=70 data-target=#TableOfContents class="page-wrapper dark">
+    <script src=http://labbces.cena.usp.br//js/wowchemy-init.min.b986d8d769373f1d4df43d168c348bd4.js></script>
+    <aside class=search-modal id=search>
+      <div class=container>
+        <section class=search-header>
+          <div class="row no-gutters justify-content-between mb-3">
+            <div class=col-6>
+              <h1>Search</h1>
+            </div>
+            <div class="col-6 col-search-close">
+              <a class=js-search href=# aria-label=Close>
+                <i class="fas fa-times-circle text-muted" aria-hidden=true></i>
+              </a>
+            </div>
+          </div>
+          <div id=search-box>
+            <input name=q id=search-query placeholder=Search... autocapitalize=off autocomplete=off autocorrect=off spellcheck=false type=search class=form-control aria-label=Search...>
+          </div>
+        </section>
+        <section class=section-search-results>
+          <div id=search-hits></div>
+        </section>
+      </div>
+    </aside>
+    <div class=page-header>
+      <nav class="navbar navbar-expand-lg navbar-light compensate-for-scrollbar" id=navbar-main>
+        <div class=container-xl>
+          <div class="d-none d-lg-inline-flex">
+            <a class=navbar-brand href=/>
+              <img src=http://labbces.cena.usp.br//media/logo_hu4bdaa9ee68286360853798cab7d37789_78789_0x70_resize_lanczos_2.png alt=LabBCES>
+            </a>
+          </div>
+          <button type=button class=navbar-toggler data-toggle=collapse data-target=#navbar-content aria-controls=navbar-content aria-expanded=false aria-label="Toggle navigation">
+            <span>
+              <i class="fas fa-bars"></i>
+            </span>
+          </button>
+          <div class="navbar-brand-mobile-wrapper d-inline-flex d-lg-none">
+            <a class=navbar-brand href=/>
+              <img src=http://labbces.cena.usp.br//media/logo_hu4bdaa9ee68286360853798cab7d37789_78789_0x70_resize_lanczos_2.png alt=LabBCES>
+            </a>
+          </div>
+          <div class="navbar-collapse main-menu-item collapse justify-content-end" id=navbar-content>
+            <ul class="navbar-nav d-md-inline-flex">
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//post>
+                  <span>News</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//people>
+                  <span>People</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//project>
+                  <span>Projects</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//pictures>
+                  <span>Pictures</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//publication>
+                  <span>Publications</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//event>
+                  <span>Events</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//tools>
+                  <span>Tools</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//teaching>
+                  <span>Teaching</span>
+                </a>
+              </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//infra>
+                  <span>Infraestructure</span>
+                </a>
+                  </li>
+              <li class=nav-item>
+                <a class=nav-link href=http://labbces.cena.usp.br//contact>
+                  <span>Contact</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+          <ul class="nav-icons navbar-nav flex-row ml-auto d-flex pl-md-2">
+            <li class=nav-item>
+              <a class="nav-link js-search" href=# aria-label=Search>
+                <i class="fas fa-search" aria-hidden=true></i>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+    <div class=page-body>
+      <div class="universal-wrapper pt-3">
+{% if sequence %}
+  <h1>Results for ID: {{ identifier }}!</h1>
+  <p>{{ sequence.sequenceVersion }}</p>
 {% else %}
-  <h1>Hello, World!</h1>
+  <h1>No sequence found with ID: {{ identifier }}</h1>
 {% endif %}
+      </div>
+    
+    </div>
+    <div class=page-footer>
+      <div class=container>
+        <footer class=site-footer>
+          <p class=powered-by>Published with <a href="https://wowchemy.com/?utm_campaign=poweredby" target=_blank rel=noopener>Wowchemy</a> — the free, <a href=https://github.com/wowchemy/wowchemy-hugo-modules target=_blank rel=noopener> open source</a> website builder that empowers creators.</p>
+        </footer>
+      </div>
+    </div>
+    <div id=modal class="modal fade" role=dialog>
+    <div class=modal-dialog>
+    <div class=modal-content>
+    <div class=modal-header>
+    <h5 class=modal-title>
+    Cite</h5>
+    <button type=button class=close data-dismiss=modal aria-label=Close>
+
+    <span aria-hidden=true>
+    &#215;</span>
+    </button>
+    </div>
+    <div class=modal-body>
+    <pre>
+    <code class="tex hljs">
+    </code>
+    </pre>
+    </div>
+    <div class=modal-footer>
+    <a class="btn btn-outline-primary my-1 js-copy-cite" href=# target=_blank>
+    <i class="fas fa-copy">
+    </i>
+    Copy</a>
+
+    <a class="btn btn-outline-primary my-1 js-download-cite" href=# target=_blank>
+    <i class="fas fa-download">
+    </i>
+    Download</a>
+    <div id=modal-error>
+    </div>
+    </div>
+    </div>
+    </div>
+    </div>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin=anonymous>
+    </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/instant.page/5.1.0/instantpage.min.js integrity="sha512-1+qUtKoh9XZW7j+6LhRMAyOrgSQKenQ4mluTR+cvxXjP1Z54RxZuzstR/H9kgPXQsVB8IW7DMDFUJpzLjvhGSQ==" crossorigin=anonymous>
+    </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.4/imagesloaded.pkgd.min.js integrity="sha256-lqvxZrPLtfffUl2G/e7szqSvPBILGbwmsGE1MKlOi0Q=" crossorigin=anonymous>
+    </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/jquery.isotope/3.0.6/isotope.pkgd.min.js integrity="sha256-CBrpuqrMhXwcLLUd5tvQ4euBHCdh7wGlDfNz8vbu/iI=" crossorigin=anonymous>
+    </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js integrity="sha256-yt2kYMy0w8AbtF89WXb2P1rfjcP/HTHLT7097U8Y5b8=" crossorigin=anonymous>
+    </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin=anonymous>
+    </script>
+    <script id=search-hit-fuse-template type=text/x-template>
+
+            <div class="search-hit" id="summary-{{key}}">
+
+              <div class="search-hit-content">
+
+                <div class="search-hit-name">
+
+                  <a href="{{relpermalink}}">
+    {{title}}</a>
+
+                  <div class="article-metadata search-hit-type">
+    {{type}}</div>
+
+                  <p class="search-hit-description">
+    {{snippet}}</p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.2.1/fuse.min.js integrity="sha256-VzgmKYmhsGNNN4Ph1kMW+BjoYJM2jV5i4IlFoeZA9XI=" crossorigin=anonymous>
+    </script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/jquery.mark.min.js integrity="sha256-4HLtjeVgH0eIB3aZ9mLYF6E8oU5chNdjU6p6rrXpl9U=" crossorigin=anonymous>
+    </script>
+    <script src=http://labbces.cena.usp.br//js/bootstrap.bundle.min.6aed84840afc03ab4d5750157f69c120.js>
+    </script>
+    <script src=http://labbces.cena.usp.br//en/js/wowchemy.min.7a65735fc5b6f46dc5d485305a645519.js>
+    </script>
+  </body>
+</html>

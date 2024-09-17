@@ -2,7 +2,7 @@ import os
 
 from flask import Flask, render_template, g
 from markupsafe import escape
-from idmapper.models import db, Sequence, panTranscriptomeGroup
+from idmapper.models import db, Sequence, panTranscriptomeGroup, Sequence2Set
 
 def create_app(test_config=None):
     # create and configure the app
@@ -46,9 +46,28 @@ def create_app(test_config=None):
     @app.route('/mapid/<id>')
     def mapid(id=None):
         try:
-            sequence = Sequence.get(Sequence.sequenceIdentifier == id)
-            return render_template('idmap.html', identifier=sequence)
+            # Get the sequence by its identifier
+            # Selecting specific fields from the Sequence model
+            proteinSequence = Sequence.select(Sequence.sequenceIdentifier).where(
+                (Sequence.sequenceIdentifier == id) & 
+                (Sequence.sequenceVersion == 1) & 
+                (Sequence.sequenceClass == 'protein')
+            ).get()
+        
+            # Check if the sequence belongs to a panTranscriptomeGroup
+            pan_group = panTranscriptomeGroup.get_or_none(panTranscriptomeGroup.sequenceID == proteinSequence.ID)
+            
+            # Check if the sequence belongs to a Sequence2Set
+            sequence_set = Sequence2Set.get_or_none(Sequence2Set.sequenceID == proteinSequence.ID)
+            
+            return render_template(
+                'idmap.html', 
+                identifier=id, 
+                sequence=proteinSequence, 
+                pan_group=pan_group, 
+                sequence_set=sequence_set
+            )
         except Sequence.DoesNotExist:
-            return f"No sequence found with ID: {id}", 404
+            return render_template('idmap.html', identifier=id, sequence=None)
 
     return app
