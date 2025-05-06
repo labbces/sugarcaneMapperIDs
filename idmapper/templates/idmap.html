@@ -144,12 +144,17 @@
     </div>
     <div class=page-body>
       <div class="universal-wrapper pt-3">
+        <h1>Identifier Mapper for Conekt Grasses</h1>
+        <div class=universal-wrapper>
+          <div>
 {% if sequence %}
-  <h1>Results for ID: {{ identifier }}!</h1>
+  <h2>Results for ID: {{ identifier }}!</h2>
   <p>{{ sequence.sequenceVersion }}</p>
 {% else %}
-  <h1>No sequence found with ID: {{ identifier }}</h1>
+  <h2>No sequence found with ID: {{ identifier }}</h2>
 {% endif %}
+          </div>
+        </div>
       </div>
     
     </div>
