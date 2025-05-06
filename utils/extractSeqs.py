@@ -9,7 +9,7 @@ import gzip
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from db.model import Sequence, panTranscriptomeGroup
+from db.model import Sequence, panTranscriptomeGroup, SequenceSet, Sequence2Set
 
 # Get the current process ID
 current_pid = os.getpid()
@@ -25,6 +25,7 @@ parser.add_argument('--transcripts', action='store_true', help='Boolean - Extrac
 parser.add_argument('--genes', action='store_true', help='Boolean - Extract Gene sequences')
 parser.add_argument('--representatives', action='store_true', help='Boolean - Extract only Representative sequences, at least one of --cds, --proteins, or --transcripts must be specified')
 parser.add_argument('--prefix', type=str, required=True, help='Prefix to be used to create output files')
+parser.add_argument('--genotypes', action='store_true', help='Separate sequence by genotype. Boolean')
 parser.add_argument('--gzip', action='store_true', help='Save output in gzip-compressed FASTA format')
 args = parser.parse_args()
 
@@ -53,31 +54,38 @@ if args.genes:
     sequence_classes.append('gene')
 
 # Function to extract sequences and write to a FASTA file
-def extract_sequences(sequence_class, representative, output_file):
+def extract_sequences(sequence_class, representative, output_file, genotype=None):
     page_size = 100000
     page_number = 1
     has_more_results = True
-
+    logging.info(f"Extracting {sequence_class} sequences" + (f" for genotype: {genotype.nameSet}" if genotype else ""))
     while has_more_results:
-        logging.info(f'M1. Extracting {sequence_class} sequences')
+        logging.info(f"Processing page {page_number} for {sequence_class} sequences"+ (f" for genotype: {genotype.nameSet}" if genotype else ""))
 
-        query = Sequence.select(Sequence.sequenceIdentifier, Sequence.sequence).where(Sequence.sequenceClass == sequence_class)
+        query = Sequence.select(Sequence.sequenceIdentifier, Sequence.sequence)
 
-        # Apply representative filter if necessary
+        if genotype:
+            query = query.join(Sequence2Set, on=(Sequence.ID == Sequence2Set.sequenceID)).where(
+                (Sequence.sequenceClass == sequence_class) &
+                (Sequence2Set.seID == genotype.seID)
+            )
+        else:
+            query = query.where(Sequence.sequenceClass == sequence_class)
+
         if representative and sequence_class != 'protein':
-            logging.info(f'M2. Filtering by representative sequences for {sequence_class}')
+            logging.info(f"Filtering by representative sequences for {sequence_class}")
             subquery = (Sequence
-                        .select(Sequence.sequenceIdentifier)
+                        .select(Sequence.ID)
                         .join(panTranscriptomeGroup, on=(Sequence.ID == panTranscriptomeGroup.sequenceID))
                         .where(panTranscriptomeGroup.representative == True))
-            query = query.where(Sequence.sequenceIdentifier.in_(subquery)).paginate(page_number, page_size)
+            query = query.where(Sequence.ID.in_(subquery))
         elif representative and sequence_class == 'protein':
-            logging.info(f'M3. Filtering by representative sequences for {sequence_class}')
-            query = query.join(panTranscriptomeGroup, on=(Sequence.ID == panTranscriptomeGroup.sequenceID)).where(panTranscriptomeGroup.representative == True).paginate(page_number, page_size)
-        else:
-            query = query.paginate(page_number, page_size)
+            logging.info(f"Filtering by representative protein sequences")
+            query = query.join(panTranscriptomeGroup, JOIN.LEFT_OUTER,
+                               on=(Sequence.ID == panTranscriptomeGroup.sequenceID)) \
+                         .where(panTranscriptomeGroup.representative == True)
 
-        sequences = query.execute()
+        sequences = query.paginate(page_number, page_size).execute()
 
         if not sequences:
             has_more_results = False
@@ -88,15 +96,26 @@ def extract_sequences(sequence_class, representative, output_file):
                     fasta_file.flush()
             page_number += 1
 
-# Loop over sequence classes and extract the corresponding sequences
-for sequence_class in sequence_classes:
-    outfile = f"{args.prefix}_{sequence_class}_{current_pid}"
-    if args.representatives:
-        outfile += '_representatives'
-    
-    # Add .fasta or .fasta.gz extension based on gzip flag
-    outfile += '.fasta.gz' if args.gzip else '.fasta'
+if args.genotypes:
+    genotypes = SequenceSet.select()
+    for genotype in genotypes:
+        for sequence_class in sequence_classes:
+            outfile = f"{args.prefix}_{genotype.nameSet}_{sequence_class}_{current_pid}"
+            if args.representatives:
+                outfile += '_representatives'
+            outfile += '.fasta.gz' if args.gzip else '.fasta'
+            extract_sequences(sequence_class, args.representatives, outfile, genotype=genotype)
 
-    extract_sequences(sequence_class, args.representatives, outfile)
+else:
+# Loop over sequence classes and extract the corresponding sequences
+    for sequence_class in sequence_classes:
+        outfile = f"{args.prefix}_{sequence_class}_{current_pid}"
+        if args.representatives:
+            outfile += '_representatives'
+        
+        # Add .fasta or .fasta.gz extension based on gzip flag
+        outfile += '.fasta.gz' if args.gzip else '.fasta'
+
+        extract_sequences(sequence_class, args.representatives, outfile)
 
 logging.info("Sequence extraction completed.")
