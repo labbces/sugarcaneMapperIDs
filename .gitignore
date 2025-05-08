@@ -8,6 +8,10 @@ FILES_PANTRANSCRIPTOME/*
 *.db-shm
 *.fasta
 *.fasta.gz
+FCS_outputdir/
+*.sif
+run_fcsadaptor.sh
+*fix.summary.txt
 *.fna
 
 # Byte-compiled / optimized / DLL files
