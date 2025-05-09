@@ -13,6 +13,11 @@ FCS_outputdir/
 run_fcsadaptor.sh
 *fix.summary.txt
 *.fna
+*.index
+*.ids
+*.tbl
+*.mapids
+uniprot_sprot.fasta*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -26,16 +26,35 @@ def load_contaminations(contaminant_file, offset):
             cols = line.strip().split('\t')
             if len(cols) != 5:
                 continue
+            if cols[2] != 'ACTION_TRIM':
+                continue
+            print(line)
             seq_id, length_str, _, region_str, _ = cols
             length = int(length_str)
-            start, end = parse_region(region_str)
+            # start, end = parse_region(region_str)
 
-            if start <= offset:
-                action = 'REMOVE_START'
-            elif end >= (length - offset + 1):
-                action = 'REMOVE_END'
-            else:
-                action = 'MASK'
+            # if start <= offset:
+            #     action = 'REMOVE_START'
+            # elif end >= (length - offset + 1):
+            #     action = 'REMOVE_END'
+            # else:
+            #     action = 'MASK'
+            regions = region_str.split(',')
+            for subregion in regions:
+                try:
+                    start, end = parse_region(subregion)
+                except ValueError:
+                    print(f"Skipping malformed region '{subregion}' in line:\n{line}")
+                    continue
+
+                if start <= offset:
+                    action = 'REMOVE_START'
+                elif end >= (length - offset + 1):
+                    action = 'REMOVE_END'
+                else:
+                    action = 'MASK'
+
+                contamination_dict[seq_id].append((start, end, action))
 
             contamination_dict[seq_id].append((start, end, action))
     return contamination_dict
