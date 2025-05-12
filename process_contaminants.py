@@ -28,7 +28,7 @@ def load_contaminations(contaminant_file, offset):
                 continue
             if cols[2] != 'ACTION_TRIM':
                 continue
-            print(line)
+            # print(line)
             seq_id, length_str, _, region_str, _ = cols
             length = int(length_str)
             # start, end = parse_region(region_str)
