@@ -18,6 +18,7 @@ run_fcsadaptor.sh
 *.tbl
 *.mapids
 uniprot_sprot.fasta*
+*.fofn
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
