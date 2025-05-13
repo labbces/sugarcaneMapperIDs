@@ -63,6 +63,26 @@ def run_blastp_multi(query_fasta, db_paths, output_prefix):
             "-num_threads", "10"
         ], check=True)
 
+def run_trnascan(input_fasta, output_file, stats_file):
+    """
+    Run tRNAscan-SE 2.0 with output and statistics file paths.
+    """
+    if Path(output_file).exists() and Path(stats_file).exists():
+        print(f"  Skipping tRNAscan-SE (outputs already exist)")
+        return
+
+    print(f"  Running tRNAscan-SE on {input_fasta}")
+    cmd = [
+        "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE",
+        "-E",
+        "--thread", "10",
+        "-o", output_file,
+        "-m", stats_file,
+        input_fasta
+    ]
+
+    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
 def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
     if Path(output_file).exists():
         print(f"  Skipping Miniprot (already exists)")
@@ -106,6 +126,14 @@ def main(transcript_list_file, swissprot_db, output_dir):
             protein_path = transcript_path.parent / base_prefix
             genotype = extract_genotype_from_filename(transcript_path.name)
 
+            if protein_path.suffix == ".gz":
+                uncompressed_protein_path = Path(output_dir) / protein_path.with_suffix('').name  # remove .gz
+                if not uncompressed_protein_path.exists():
+                    print(f"  Decompressing protein file: {protein_path.name}")
+                    with gzip.open(protein_path, 'rt') as f_in, open(uncompressed_protein_path, 'w') as f_out:
+                        f_out.writelines(f_in)
+            else:
+                uncompressed_protein_path = protein_path
             print(f"\nProcessing genotype: {genotype}")
             print(f"Transcript file: {transcript_path}")
             print(f"Protein file: {protein_path}")
@@ -123,9 +151,20 @@ def main(transcript_list_file, swissprot_db, output_dir):
             output_prefix = Path(output_dir) / base_output_name
             paf_out = Path(output_dir) / f"{base_output_name}.miniprot.paf"
             tbl_out = Path(output_dir) / f"{base_output_name}.tbl"
+            trnascan_out = Path(output_dir) / f"{base_output_name}.trnascan.txt"
+            trnascan_stats = Path(output_dir) / f"{base_output_name}.trnascan.stats.txt"
 
-            run_blastp_multi(str(protein_path), [swissprot_db, additional_db], str(output_prefix))
+            run_trnascan(str(modified_transcript_path), str(trnascan_out), str(trnascan_stats))
+
+
+            run_blastp_multi(str(uncompressed_protein_path), [swissprot_db, additional_db], str(output_prefix))
+
+            if protein_path.suffix == ".gz" and uncompressed_protein_path.exists():
+                print(f"  Removing temporary uncompressed protein file: {uncompressed_protein_path}")
+                uncompressed_protein_path.unlink()
             run_miniprot(str(protein_path), str(modified_transcript_path), str(paf_out))
+
+
             parse_results_and_generate_tbl(str(output_prefix) + f".blast.{Path(swissprot_db).stem}.txt", str(paf_out), str(tbl_out))
 
 if __name__ == "__main__":
