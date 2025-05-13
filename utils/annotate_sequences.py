@@ -1,18 +1,19 @@
 import os
 import subprocess
 import gzip
+import shutil
+import concurrent.futures
 from pathlib import Path
+from collections import defaultdict
 from Bio import SeqIO
 
 def extract_genotype_from_filename(filename):
-    """Extract genotype name (e.g., US851008) from transcript filename."""
     filename_prefix = 'sugarcanePanTranscriptome_06052025_'
     filename_suffix = '_transcript_4120596.fix.fasta.gz'
     part = filename.replace(filename_prefix, "").replace(filename_suffix, "")
     return part
 
 def modify_transcript_headers(transcripts_fasta_gz, genotype, output_fasta):
-    """Add [moltype=mRNA] and [organism=...] to FASTA headers."""
     organism_str = f"[moltype=mRNA] [organism=Saccharum hybrid cultivar {genotype}]"
     with gzip.open(transcripts_fasta_gz, "rt") as input_handle, open(output_fasta, "w") as output_handle:
         for record in SeqIO.parse(input_handle, "fasta"):
@@ -21,66 +22,97 @@ def modify_transcript_headers(transcripts_fasta_gz, genotype, output_fasta):
     return output_fasta
 
 def ensure_blast_db(fasta_path):
-    """Create BLAST database if it does not exist (supports both split and non-split DBs)."""
     db_path = Path(fasta_path)
     parent = db_path.parent
     basename = db_path.name
-
-    # Match both split (e.g., .00.pin) and non-split (.pin) databases
     pin_files = list(parent.glob(f"{basename}*.pin"))
     psq_files = list(parent.glob(f"{basename}*.psq"))
     phr_files = list(parent.glob(f"{basename}*.phr"))
-
     if pin_files and psq_files and phr_files:
         print(f"  BLAST database for {fasta_path} already exists.")
         return
-
     print(f"  Creating BLAST database for {fasta_path}...")
-    subprocess.run([
-        "makeblastdb",
-        "-in", str(fasta_path),
-        "-dbtype", "prot"
-    ], check=True)
+    subprocess.run(["makeblastdb", "-in", str(fasta_path), "-dbtype", "prot"], check=True)
 
-def run_blastp_multi(query_fasta, db_paths, output_prefix):
-    """Run BLASTP against multiple databases."""
-    print(f'{query_fasta} -> {output_prefix}')
+def split_fasta(input_fasta, output_prefix, chunk_size=500):
+    chunk_files = []
+    records = list(SeqIO.parse(input_fasta, "fasta"))
+    for i in range(0, len(records), chunk_size):
+        chunk_records = records[i:i + chunk_size]
+        chunk_file = f"{output_prefix}.chunk{i // chunk_size + 1}.fasta"
+        with open(chunk_file, "w") as f:
+            SeqIO.write(chunk_records, f, "fasta")
+        chunk_files.append(chunk_file)
+    return chunk_files
+
+def blastp_chunk_worker(chunk_file, db_path, output_file):
+    if Path(output_file).exists():
+        print(f"  Skipping BLASTP chunk (already exists): {output_file}")
+        return output_file
+    print(f"  Running BLASTP: {chunk_file} vs {Path(db_path).stem}")
+    subprocess.run([
+        "blastp",
+        "-query", chunk_file,
+        "-db", db_path,
+        "-out", output_file,
+        "-outfmt", "6",
+        "-evalue", "1e-5",
+        "-num_threads", "5"
+    ], check=True)
+    return output_file
+
+def run_blastp_multi_parallel(query_fasta, db_paths, output_prefix, chunk_size=500, max_workers=4):
+    chunk_files = split_fasta(query_fasta, output_prefix, chunk_size)
+    jobs = []
+    output_map = defaultdict(list)
+
     for db in db_paths:
-        ensure_blast_db(db)
         db_name = Path(db).stem
-        output_file = f"{output_prefix}.blast.{db_name}.txt"
-        if Path(output_file).exists():
-            print(f"  Skipping BLASTP against {db_name} (already exists)")
+        merged_output = Path(f"{output_prefix}.blast.{db_name}.txt")
+        if merged_output.exists():
+            print(f"  Skipping BLASTP for {db_name} — merged output exists: {merged_output}")
             continue
-        print(f"  Running BLASTP against {db_name}...")
-        subprocess.run([
-            "blastp",
-            "-query", query_fasta,
-            "-db", db,
-            "-out", output_file,
-            "-outfmt", "6",
-            "-evalue", "1e-5",
-            "-num_threads", "10"
-        ], check=True)
+        ensure_blast_db(db)
+        for chunk_file in chunk_files:
+            chunk_suffix = Path(chunk_file).stem.replace(Path(query_fasta).stem, "")
+            output_file = f"{output_prefix}{chunk_suffix}.blast.{db_name}.txt"
+            output_map[db_name].append(output_file)
+            jobs.append((chunk_file, db, output_file))
+
+    if not jobs:
+        return
+
+    print(f"  Submitting {len(jobs)} BLASTP jobs with {max_workers} workers...")
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(blastp_chunk_worker, chunk, db, out) for chunk, db, out in jobs]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                print(f"    ✅ Finished: {result}")
+            except Exception as e:
+                print(f"    ❌ Error: {e}")
+
+    for db_name, chunk_outputs in output_map.items():
+        merged_file = f"{output_prefix}.blast.{db_name}.txt"
+        print(f"  Merging chunks into: {merged_file}")
+        with open(merged_file, "w") as merged:
+            for chunk_file in chunk_outputs:
+                with open(chunk_file, "r") as cf:
+                    shutil.copyfileobj(cf, merged)
+                Path(chunk_file).unlink()
 
 def run_trnascan(input_fasta, output_file, stats_file):
-    """
-    Run tRNAscan-SE 2.0 with output and statistics file paths.
-    """
     if Path(output_file).exists() and Path(stats_file).exists():
         print(f"  Skipping tRNAscan-SE (outputs already exist)")
         return
-
     print(f"  Running tRNAscan-SE on {input_fasta}")
     cmd = [
         "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE",
-        "-E",
-        "--thread", "10",
+        "-E", "--thread", "10",
         "-o", output_file,
         "-m", stats_file,
         input_fasta
     ]
-
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
 def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
@@ -89,19 +121,15 @@ def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
         return
     print(f"  Running Miniprot...")
     with open(output_file, "w") as out:
-        subprocess.run([
-            "miniprot", "-t", "15",
-            transcripts_fasta, proteins_fasta
-        ], stdout=out, check=True)
+        subprocess.run(["miniprot", "-t", "15", transcripts_fasta, proteins_fasta], stdout=out, check=True)
 
 def parse_miniprot_results(miniprot_file):
-    """Parse Miniprot results and return a list of tuples."""
     with open(miniprot_file) as f:
         for line in f:
             if line.startswith("#"):
                 continue
             fields = line.strip().split("\t")
-            if fields[0] == fields[5] and fields[1]*3 == fields[6]:#Revisar
+            if fields[0] == fields[5] and fields[1]*3 == fields[6]:
                 continue
 
 def parse_results_and_generate_tbl(blast_file, paf_file, output_tbl):
@@ -127,18 +155,18 @@ def main(transcript_list_file, swissprot_db, output_dir):
             genotype = extract_genotype_from_filename(transcript_path.name)
 
             if protein_path.suffix == ".gz":
-                uncompressed_protein_path = Path(output_dir) / protein_path.with_suffix('').name  # remove .gz
+                uncompressed_protein_path = Path(output_dir) / protein_path.with_suffix('').name
                 if not uncompressed_protein_path.exists():
                     print(f"  Decompressing protein file: {protein_path.name}")
                     with gzip.open(protein_path, 'rt') as f_in, open(uncompressed_protein_path, 'w') as f_out:
                         f_out.writelines(f_in)
             else:
                 uncompressed_protein_path = protein_path
+
             print(f"\nProcessing genotype: {genotype}")
             print(f"Transcript file: {transcript_path}")
             print(f"Protein file: {protein_path}")
 
-            # Generate modified transcript filename with "fix2"
             modified_transcript_filename = transcript_path.name.replace("fix", "fix2").removesuffix(".gz")
             modified_transcript_path = Path(output_dir) / modified_transcript_filename
 
@@ -156,16 +184,24 @@ def main(transcript_list_file, swissprot_db, output_dir):
 
             run_trnascan(str(modified_transcript_path), str(trnascan_out), str(trnascan_stats))
 
-
-            run_blastp_multi(str(uncompressed_protein_path), [swissprot_db, additional_db], str(output_prefix))
+            run_blastp_multi_parallel(
+                str(uncompressed_protein_path),
+                [swissprot_db, additional_db],
+                str(output_prefix),
+                chunk_size=5000,
+                max_workers=15
+            )
 
             if protein_path.suffix == ".gz" and uncompressed_protein_path.exists():
                 print(f"  Removing temporary uncompressed protein file: {uncompressed_protein_path}")
                 uncompressed_protein_path.unlink()
+
             run_miniprot(str(protein_path), str(modified_transcript_path), str(paf_out))
-
-
-            parse_results_and_generate_tbl(str(output_prefix) + f".blast.{Path(swissprot_db).stem}.txt", str(paf_out), str(tbl_out))
+            parse_results_and_generate_tbl(
+                str(output_prefix) + f".blast.{Path(swissprot_db).stem}.txt",
+                str(paf_out),
+                str(tbl_out)
+            )
 
 if __name__ == "__main__":
     import argparse
