@@ -101,19 +101,59 @@ def run_blastp_multi_parallel(query_fasta, db_paths, output_prefix, chunk_size=5
                     shutil.copyfileobj(cf, merged)
                 Path(chunk_file).unlink()
 
-def run_trnascan(input_fasta, output_file, stats_file):
+def trnascan_chunk_worker(chunk_file, output_file, stats_file):
     if Path(output_file).exists() and Path(stats_file).exists():
-        print(f"  Skipping tRNAscan-SE (outputs already exist)")
-        return
-    print(f"  Running tRNAscan-SE on {input_fasta}")
+        print(f"  Skipping tRNAscan chunk (already exists): {output_file}")
+        return output_file, stats_file
+    print(f"  Running tRNAscan-SE on {chunk_file}")
     cmd = [
         "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE",
-        "-E", "--thread", "10",
+        "-E", "--thread", "5",
         "-o", output_file,
         "-m", stats_file,
-        input_fasta
+        chunk_file
     ]
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    return output_file, stats_file
+
+def run_trnascan_chunked_parallel(transcript_fasta, output_prefix, chunk_size=500, max_workers=4):
+    chunk_files = split_fasta(transcript_fasta, output_prefix, chunk_size)
+    jobs = []
+    trna_txt_chunks = []
+    stats_chunks = []
+
+    for i, chunk in enumerate(chunk_files):
+        chunk_id = i + 1
+        out_txt = f"{output_prefix}.chunk{chunk_id}.trnascan.txt"
+        stats_txt = f"{output_prefix}.chunk{chunk_id}.trnascan.stats.txt"
+        trna_txt_chunks.append(out_txt)
+        stats_chunks.append(stats_txt)
+        jobs.append((chunk, out_txt, stats_txt))
+
+    print(f"  Submitting {len(jobs)} tRNAscan chunk jobs for {Path(transcript_fasta).name}...")
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(trnascan_chunk_worker, *job) for job in jobs]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"    ❌ Error in tRNAscan chunk: {e}")
+
+    merged_txt = f"{output_prefix}.trnascan.txt"
+    merged_stats = f"{output_prefix}.trnascan.stats.txt"
+    print(f"  Merging tRNAscan chunks into: {merged_txt} and {merged_stats}")
+    with open(merged_txt, "w") as out:
+        for f in trna_txt_chunks:
+            with open(f) as part:
+                shutil.copyfileobj(part, out)
+            Path(f).unlink()
+    with open(merged_stats, "w") as out:
+        for f in stats_chunks:
+            with open(f) as part:
+                shutil.copyfileobj(part, out)
+            Path(f).unlink()
+    for f in chunk_files:
+        Path(f).unlink()
 
 def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
     if Path(output_file).exists():
@@ -179,17 +219,20 @@ def main(transcript_list_file, swissprot_db, output_dir):
             output_prefix = Path(output_dir) / base_output_name
             paf_out = Path(output_dir) / f"{base_output_name}.miniprot.paf"
             tbl_out = Path(output_dir) / f"{base_output_name}.tbl"
-            trnascan_out = Path(output_dir) / f"{base_output_name}.trnascan.txt"
-            trnascan_stats = Path(output_dir) / f"{base_output_name}.trnascan.stats.txt"
 
-            run_trnascan(str(modified_transcript_path), str(trnascan_out), str(trnascan_stats))
+            run_trnascan_chunked_parallel(
+                str(modified_transcript_path),
+                str(modified_transcript_path.with_suffix('')),
+                chunk_size=5000,
+                max_workers=12
+            )
 
             run_blastp_multi_parallel(
                 str(uncompressed_protein_path),
                 [swissprot_db, additional_db],
                 str(output_prefix),
                 chunk_size=5000,
-                max_workers=15
+                max_workers=12
             )
 
             if protein_path.suffix == ".gz" and uncompressed_protein_path.exists():
@@ -205,7 +248,7 @@ def main(transcript_list_file, swissprot_db, output_dir):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Annotate protein sequences using BLAST and Miniprot.")
+    parser = argparse.ArgumentParser(description="Annotate protein sequences using BLAST, Miniprot, and tRNAscan-SE.")
     parser.add_argument("--transcript_file_list", required=True, help="List of transcript .fix.fasta.gz files")
     parser.add_argument("--swissprot_db", required=True, help="Path to uniprot_sprot.fasta (will auto-index if needed)")
     parser.add_argument("--output_dir", required=True, help="Directory to store outputs")
