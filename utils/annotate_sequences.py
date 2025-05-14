@@ -108,7 +108,7 @@ def trnascan_chunk_worker(chunk_file, output_file, stats_file):
     print(f"  Running tRNAscan-SE on {chunk_file}")
     cmd = [
         "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE",
-        "-E", "--thread", "5",
+        "-E", "--thread", "10",
         "-o", output_file,
         "-m", stats_file,
         chunk_file
@@ -117,6 +117,11 @@ def trnascan_chunk_worker(chunk_file, output_file, stats_file):
     return output_file, stats_file
 
 def run_trnascan_chunked_parallel(transcript_fasta, output_prefix, chunk_size=500, max_workers=4):
+    merged_txt = f"{output_prefix}.trnascan.txt"
+    merged_stats = f"{output_prefix}.trnascan.stats.txt"
+    if Path(merged_txt).exists() and Path(merged_stats).exists():
+        print(f"  Skipping tRNAscan-SE (merged outputs already exist): {merged_txt}")
+        return
     chunk_files = split_fasta(transcript_fasta, output_prefix, chunk_size)
     jobs = []
     trna_txt_chunks = []
