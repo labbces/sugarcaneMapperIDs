@@ -4,7 +4,6 @@ import gzip
 import shutil
 import concurrent.futures
 from pathlib import Path
-from collections import defaultdict
 from Bio import SeqIO
 
 def extract_genotype_from_filename(filename):
@@ -21,18 +20,37 @@ def modify_transcript_headers(transcripts_fasta_gz, genotype, output_fasta):
             SeqIO.write(record, output_handle, "fasta")
     return output_fasta
 
-def ensure_blast_db(fasta_path):
-    db_path = Path(fasta_path)
-    parent = db_path.parent
-    basename = db_path.name
-    pin_files = list(parent.glob(f"{basename}*.pin"))
-    psq_files = list(parent.glob(f"{basename}*.psq"))
-    phr_files = list(parent.glob(f"{basename}*.phr"))
-    if pin_files and psq_files and phr_files:
-        print(f"  BLAST database for {fasta_path} already exists.")
-        return
-    print(f"  Creating BLAST database for {fasta_path}...")
-    subprocess.run(["makeblastdb", "-in", str(fasta_path), "-dbtype", "prot"], check=True)
+def ensure_diamond_db(fasta_path):
+    db_path = Path(fasta_path).with_suffix(".dmnd")
+    print(f'  Checking DIAMOND database: {db_path}')
+    if db_path.exists():
+        print(f"  DIAMOND database already exists: {db_path}")
+        return db_path
+    print(f"  Creating DIAMOND database for {fasta_path}...")
+    subprocess.run(["diamond", "makedb", "--in", str(fasta_path), "--db", Path(fasta_path).with_suffix(".dmnd")], check=True)
+    return db_path
+
+def run_diamond(query_fasta, db_paths, output_prefix, threads=20):
+    for db in db_paths:
+        db_name = Path(db).stem
+        output_file = Path(f"{output_prefix}.blast.{db_name}.txt")
+        if output_file.exists():
+            print(f"  Skipping DIAMOND for {db_name} — output exists: {output_file}")
+            continue
+        print(f"  writing in {output_file}")
+        ensure_diamond_db(db)
+        print(f"  Running DIAMOND: {query_fasta} vs {db_name}")
+        subprocess.run([
+            "diamond", "blastp",
+            "--query", query_fasta,
+            "--db", str(db).replace(".fasta", ".dmnd"),
+            "--out", str(output_file),
+            "--outfmt", "6",
+            "--evalue", "1e-5",
+            "--threads", str(threads),
+            "--quiet",
+            "--sensitive"
+        ], check=True)
 
 def split_fasta(input_fasta, output_prefix, chunk_size=500):
     chunk_files = []
@@ -44,62 +62,6 @@ def split_fasta(input_fasta, output_prefix, chunk_size=500):
             SeqIO.write(chunk_records, f, "fasta")
         chunk_files.append(chunk_file)
     return chunk_files
-
-def blastp_chunk_worker(chunk_file, db_path, output_file):
-    if Path(output_file).exists():
-        print(f"  Skipping BLASTP chunk (already exists): {output_file}")
-        return output_file
-    print(f"  Running BLASTP: {chunk_file} vs {Path(db_path).stem}")
-    subprocess.run([
-        "blastp",
-        "-query", chunk_file,
-        "-db", db_path,
-        "-out", output_file,
-        "-outfmt", "6",
-        "-evalue", "1e-5",
-        "-num_threads", "5"
-    ], check=True)
-    return output_file
-
-def run_blastp_multi_parallel(query_fasta, db_paths, output_prefix, chunk_size=500, max_workers=4):
-    chunk_files = split_fasta(query_fasta, output_prefix, chunk_size)
-    jobs = []
-    output_map = defaultdict(list)
-
-    for db in db_paths:
-        db_name = Path(db).stem
-        merged_output = Path(f"{output_prefix}.blast.{db_name}.txt")
-        if merged_output.exists():
-            print(f"  Skipping BLASTP for {db_name} — merged output exists: {merged_output}")
-            continue
-        ensure_blast_db(db)
-        for chunk_file in chunk_files:
-            chunk_suffix = Path(chunk_file).stem.replace(Path(query_fasta).stem, "")
-            output_file = f"{output_prefix}{chunk_suffix}.blast.{db_name}.txt"
-            output_map[db_name].append(output_file)
-            jobs.append((chunk_file, db, output_file))
-
-    if not jobs:
-        return
-
-    print(f"  Submitting {len(jobs)} BLASTP jobs with {max_workers} workers...")
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(blastp_chunk_worker, chunk, db, out) for chunk, db, out in jobs]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                result = future.result()
-                print(f"    ✅ Finished: {result}")
-            except Exception as e:
-                print(f"    ❌ Error: {e}")
-
-    for db_name, chunk_outputs in output_map.items():
-        merged_file = f"{output_prefix}.blast.{db_name}.txt"
-        print(f"  Merging chunks into: {merged_file}")
-        with open(merged_file, "w") as merged:
-            for chunk_file in chunk_outputs:
-                with open(chunk_file, "r") as cf:
-                    shutil.copyfileobj(cf, merged)
-                Path(chunk_file).unlink()
 
 def trnascan_chunk_worker(chunk_file, output_file, stats_file):
     if Path(output_file).exists() and Path(stats_file).exists():
@@ -144,8 +106,6 @@ def run_trnascan_chunked_parallel(transcript_fasta, output_prefix, chunk_size=50
             except Exception as e:
                 print(f"    ❌ Error in tRNAscan chunk: {e}")
 
-    merged_txt = f"{output_prefix}.trnascan.txt"
-    merged_stats = f"{output_prefix}.trnascan.stats.txt"
     print(f"  Merging tRNAscan chunks into: {merged_txt} and {merged_stats}")
     with open(merged_txt, "w") as out:
         for f in trna_txt_chunks:
@@ -222,8 +182,6 @@ def main(transcript_list_file, swissprot_db, output_dir):
 
             base_output_name = protein_path.stem
             output_prefix = Path(output_dir) / base_output_name
-            paf_out = Path(output_dir) / f"{base_output_name}.miniprot.paf"
-            tbl_out = Path(output_dir) / f"{base_output_name}.tbl"
 
             run_trnascan_chunked_parallel(
                 str(modified_transcript_path),
@@ -232,30 +190,25 @@ def main(transcript_list_file, swissprot_db, output_dir):
                 max_workers=12
             )
 
-            run_blastp_multi_parallel(
+            paf_out = Path(output_dir) / f"{base_output_name}.miniprot.paf"
+            run_miniprot(str(protein_path), str(modified_transcript_path), str(paf_out))
+
+            run_diamond(
                 str(uncompressed_protein_path),
                 [swissprot_db, additional_db],
                 str(output_prefix),
-                chunk_size=5000,
-                max_workers=12
+                threads=60
             )
 
             if protein_path.suffix == ".gz" and uncompressed_protein_path.exists():
                 print(f"  Removing temporary uncompressed protein file: {uncompressed_protein_path}")
                 uncompressed_protein_path.unlink()
 
-            run_miniprot(str(protein_path), str(modified_transcript_path), str(paf_out))
-            parse_results_and_generate_tbl(
-                str(output_prefix) + f".blast.{Path(swissprot_db).stem}.txt",
-                str(paf_out),
-                str(tbl_out)
-            )
-
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Annotate protein sequences using BLAST, Miniprot, and tRNAscan-SE.")
+    parser = argparse.ArgumentParser(description="Annotate protein sequences using DIAMOND.")
     parser.add_argument("--transcript_file_list", required=True, help="List of transcript .fix.fasta.gz files")
-    parser.add_argument("--swissprot_db", required=True, help="Path to uniprot_sprot.fasta (will auto-index if needed)")
+    parser.add_argument("--swissprot_db", required=True, help="Path to uniprot_sprot.fasta")
     parser.add_argument("--output_dir", required=True, help="Directory to store outputs")
     args = parser.parse_args()
 
