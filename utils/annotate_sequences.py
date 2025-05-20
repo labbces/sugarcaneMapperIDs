@@ -156,7 +156,7 @@ def parse_results_and_generate_tbl(blast_file, paf_file, output_tbl):
         out.write(">Feature hypothetical_sequence\n")
         # TODO: replace with real annotation logic
 
-def main(transcript_list_file, swissprot_db, output_dir):
+def main(transcript_list_file, output_dir):
 
     # Validate paths for required executables
     check_exec_path("DIAMOND", DIAMOND_BIN)
@@ -164,7 +164,6 @@ def main(transcript_list_file, swissprot_db, output_dir):
     check_exec_path("Miniprot", MINIPROT_BIN)
 
     os.makedirs(output_dir, exist_ok=True)
-    additional_db = "DBs/uniprot_trembl.fasta"
 
     with open(transcript_list_file) as f:
         for line in f:
@@ -224,7 +223,7 @@ def main(transcript_list_file, swissprot_db, output_dir):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Annotate protein sequences using DIAMOND.")
-    parser.add_argument("--transcript_file_list", required=True, help="List of transcript .fix.fasta.gz files")
+    parser.add_argument("--transcript_file_list", required=True, help="File of filename with a list of transcript .fix.fasta.gz files")
     parser.add_argument("--output_dir", required=True, help="Directory to store outputs")
     args = parser.parse_args()
 
