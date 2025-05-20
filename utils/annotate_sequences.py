@@ -10,6 +10,7 @@ from Bio import SeqIO
 DIAMOND_BIN = os.environ.get("DIAMOND_BIN", "diamond")
 TRNASCAN_BIN = os.environ.get("TRNASCAN_BIN", "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE")
 MINIPROT_BIN = os.environ.get("MINIPROT_BIN", "miniprot")
+AHRD_BIN = os.environ.get("AHRD_BIN", "/home/diriano/sugarcaneMapperIDs/AHRD/dist/ahrd.jar")
 DIAMOND_DATABASES = ["DBs/uniprot_sprot.fasta","DBs/uniprot_trembl.fasta"]
 # ==== END GLOBAL SETTINGS ====
 
@@ -139,6 +140,61 @@ def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
     with open(output_file, "w") as out:
         subprocess.run([MINIPROT_BIN, "-t", "15", transcripts_fasta, proteins_fasta], stdout=out, check=True)
 
+def run_ahrd(protein_fasta, output_dir, output_prefix):
+    config_path = Path(output_dir) / f"{output_prefix}.ahrd.yml"
+    output_csv = Path(output_dir) / f"{output_prefix}.ahrd.csv"
+    swiss_blast = Path(output_dir) / f"{output_prefix}.blast.uniprot_sprot.txt"
+    trembl_blast = Path(output_dir) / f"{output_prefix}.blast.uniprot_trembl.txt"
+
+    if Path(output_csv).exists():
+        print(f" Skipping AHRD (already exists)")
+        return
+    
+    if not Path(swiss_blast).exists() or not Path(trembl_blast).exists():
+        print(f" AHRD will not run because similarity search files are not present. Check that Diamond results are present!")
+        return
+    
+    # Caminhos dos arquivos fixos
+    go_annotation = "DBs/goa_uniprot_all.gaf"
+    blacklist = "DBs/ahrd/blacklist_descline.txt"
+    filter_sprot = "DBs/ahrd/filter_descline_sprot.txt"
+    filter_trembl = "DBs/ahrd/filter_descline_trembl.txt"
+    token_blacklist = "DBs/ahrd/blacklist_token.txt"
+
+    config_yaml = f"""\
+proteins_fasta: {protein_fasta}
+gene_ontology_result: {go_annotation}
+reference_go_regex: ^UniProtKB\\s+(?<shortAccession>\\S+)\\s+\\S+\\s+(?<goTerm>GO:\\d{7})
+prefer_reference_with_go_annos: false
+token_score_bit_score_weight: 0.468
+token_score_database_score_weight: 0.2098
+token_score_overlap_score_weight: 0.3221
+output: {output_csv}
+blast_dbs:
+  swissprot:
+    weight: 653
+    description_score_bit_score_weight: 2.717061
+    file: {swiss_blast}
+    database: DBs/uniprot_sprot.fasta
+    blacklist: {blacklist}
+    filter: {filter_sprot}
+    token_blacklist: {token_blacklist}
+  trembl:
+    weight: 904
+    description_score_bit_score_weight: 2.590211
+    file: {trembl_blast}
+    database: DBs/uniprot_trembl.fasta
+    blacklist: {blacklist}
+    filter: {filter_trembl}
+    token_blacklist: {token_blacklist}
+"""
+
+    with open(config_path, "w") as f:
+        f.write(config_yaml)
+
+    print(f"  Running AHRD for {protein_fasta}")
+    subprocess.run(["java", "-jar", '-XX:ActiveProcessorCount=10', AHRD_BIN, str(config_path)], check=True)
+
 def parse_miniprot_results(miniprot_file):
     with open(miniprot_file) as f:
         for line in f:
@@ -214,6 +270,12 @@ def main(transcript_list_file, output_dir):
                 DIAMOND_DATABASES,
                 str(output_prefix),
                 threads=60
+            )
+
+            run_ahrd(
+                str(uncompressed_protein_path),
+                str(output_dir),
+                base_output_name
             )
 
             if protein_path.suffix == ".gz" and uncompressed_protein_path.exists():
