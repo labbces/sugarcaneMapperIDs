@@ -6,12 +6,23 @@ import concurrent.futures
 from pathlib import Path
 from Bio import SeqIO
 
+# ==== GLOBAL SETTINGS ====
+DIAMOND_BIN = os.environ.get("DIAMOND_BIN", "diamond")
+TRNASCAN_BIN = os.environ.get("TRNASCAN_BIN", "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE")
+MINIPROT_BIN = os.environ.get("MINIPROT_BIN", "miniprot")
+DIAMOND_DATABASES = ["DBs/uniprot_sprot.fasta","DBs/uniprot_trembl.fasta"]
+# ==== END GLOBAL SETTINGS ====
+
 def extract_genotype_from_filename(filename):
     filename_prefix = 'sugarcanePanTranscriptome_06052025_'
     filename_suffix = '_transcript_4120596.fix.fasta.gz'
     part = filename.replace(filename_prefix, "").replace(filename_suffix, "")
     return part
 
+def check_exec_path(name, path):
+    if shutil.which(path) is None:
+        raise FileNotFoundError(f"Executable for {name} not found at '{path}'. Check PATH or environment variable.")
+    
 def modify_transcript_headers(transcripts_fasta_gz, genotype, output_fasta):
     organism_str = f"[moltype=mRNA] [organism=Saccharum hybrid cultivar {genotype}]"
     with gzip.open(transcripts_fasta_gz, "rt") as input_handle, open(output_fasta, "w") as output_handle:
@@ -27,7 +38,7 @@ def ensure_diamond_db(fasta_path):
         print(f"  DIAMOND database already exists: {db_path}")
         return db_path
     print(f"  Creating DIAMOND database for {fasta_path}...")
-    subprocess.run(["diamond", "makedb", "--in", str(fasta_path), "--db", Path(fasta_path).with_suffix(".dmnd")], check=True)
+    subprocess.run([DIAMOND_BIN, "makedb", "--in", str(fasta_path), "--db", Path(fasta_path).with_suffix(".dmnd")], check=True)
     return db_path
 
 def run_diamond(query_fasta, db_paths, output_prefix, threads=20):
@@ -39,9 +50,9 @@ def run_diamond(query_fasta, db_paths, output_prefix, threads=20):
             continue
         print(f"  writing in {output_file}")
         ensure_diamond_db(db)
-        print(f"  Running DIAMOND: {query_fasta} vs {db_name}")
+        print(f"  Running DIAMOND: {query_fasta} vs {db_name} with {threads} threads")
         subprocess.run([
-            "diamond", "blastp",
+            DIAMOND_BIN, "blastp",
             "--query", query_fasta,
             "--db", str(db).replace(".fasta", ".dmnd"),
             "--out", str(output_file),
@@ -69,7 +80,7 @@ def trnascan_chunk_worker(chunk_file, output_file, stats_file):
         return output_file, stats_file
     print(f"  Running tRNAscan-SE on {chunk_file}")
     cmd = [
-        "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE",
+        TRNASCAN_BIN,
         "-E", "--thread", "10",
         "-o", output_file,
         "-m", stats_file,
@@ -126,7 +137,7 @@ def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
         return
     print(f"  Running Miniprot...")
     with open(output_file, "w") as out:
-        subprocess.run(["miniprot", "-t", "15", transcripts_fasta, proteins_fasta], stdout=out, check=True)
+        subprocess.run([MINIPROT_BIN, "-t", "15", transcripts_fasta, proteins_fasta], stdout=out, check=True)
 
 def parse_miniprot_results(miniprot_file):
     with open(miniprot_file) as f:
@@ -146,6 +157,12 @@ def parse_results_and_generate_tbl(blast_file, paf_file, output_tbl):
         # TODO: replace with real annotation logic
 
 def main(transcript_list_file, swissprot_db, output_dir):
+
+    # Validate paths for required executables
+    check_exec_path("DIAMOND", DIAMOND_BIN)
+    check_exec_path("tRNAscan-SE", TRNASCAN_BIN)
+    check_exec_path("Miniprot", MINIPROT_BIN)
+
     os.makedirs(output_dir, exist_ok=True)
     additional_db = "DBs/uniprot_trembl.fasta"
 
@@ -195,7 +212,7 @@ def main(transcript_list_file, swissprot_db, output_dir):
 
             run_diamond(
                 str(uncompressed_protein_path),
-                [swissprot_db, additional_db],
+                DIAMOND_DATABASES,
                 str(output_prefix),
                 threads=60
             )
@@ -208,7 +225,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Annotate protein sequences using DIAMOND.")
     parser.add_argument("--transcript_file_list", required=True, help="List of transcript .fix.fasta.gz files")
-    parser.add_argument("--swissprot_db", required=True, help="Path to uniprot_sprot.fasta")
     parser.add_argument("--output_dir", required=True, help="Directory to store outputs")
     args = parser.parse_args()
 
