@@ -193,7 +193,7 @@ blast_dbs:
         f.write(config_yaml)
 
     print(f"  Running AHRD for {protein_fasta}")
-    subprocess.run(["java", "-jar", '-XX:ActiveProcessorCount=10', AHRD_BIN, str(config_path)], check=True)
+    subprocess.run(["java", "-jar", '-Xmx10g','-XX:ActiveProcessorCount=10', AHRD_BIN, str(config_path)], check=True)
 
 def parse_miniprot_results(miniprot_file):
     with open(miniprot_file) as f:
