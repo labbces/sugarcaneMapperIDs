@@ -228,4 +228,4 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", required=True, help="Directory to store outputs")
     args = parser.parse_args()
 
-    main(args.transcript_file_list, args.swissprot_db, args.output_dir)
+    main(args.transcript_file_list, args.output_dir)
