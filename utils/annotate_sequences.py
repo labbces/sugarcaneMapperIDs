@@ -33,14 +33,14 @@ def check_conda_env_exists(env_name):
         result = subprocess.run(["conda", "env", "list"], capture_output=True, text=True, check=True)
         if env_name not in result.stdout:
             raise EnvironmentError(f"Conda environment '{env_name}' not found.")
-        print(f"✅ Conda environment '{env_name}' found.")
+        print(f" Conda environment '{env_name}' found.")
     except FileNotFoundError:
         raise EnvironmentError("Conda is not installed or not in PATH.")
     except subprocess.CalledProcessError as e:
         raise EnvironmentError(f"Failed to list conda environments: {e}")
 
 def modify_transcript_headers(transcripts_fasta_gz, genotype, output_fasta):
-    organism_str = f"[moltype=mRNA] [organism=Saccharum hybrid cultivar {genotype}]"
+    organism_str = f"[moltype=transcribed_RNA] [tech=TSA] [organism=Saccharum hybrid cultivar {genotype}]"
     with gzip.open(transcripts_fasta_gz, "rt") as input_handle, open(output_fasta, "w") as output_handle:
         for record in SeqIO.parse(input_handle, "fasta"):
             record.description = f"{record.id} {organism_str}"
@@ -149,7 +149,7 @@ def run_trnascan_chunked_parallel(transcript_fasta, output_prefix, chunk_size=50
 
 def run_miniprot(proteins_fasta, transcripts_fasta, output_file):
     if Path(output_file).exists():
-        print(f"  Skipping Miniprot (already exists)")
+        print(f"  Skipping Miniprot (already exists): {output_file}")
         return
     print(f"  Running Miniprot...")
     with open(output_file, "w") as out:
@@ -162,7 +162,7 @@ def run_ahrd(protein_fasta, output_dir, output_prefix):
     trembl_blast = Path(output_dir) / f"{output_prefix}.blast.uniprot_trembl.txt"
 
     if Path(output_csv).exists():
-        print(f" Skipping AHRD (already exists)")
+        print(f"  Skipping AHRD (already exists)")
         return
     
     if not Path(swiss_blast).exists() or not Path(trembl_blast).exists():
@@ -229,21 +229,143 @@ def run_dbcan(input_fasta, output_dir, mode="protein"):
     subprocess.run(cmd, shell=True, executable="/bin/bash", check=True)
 
 def parse_miniprot_results(miniprot_file):
+    res={}
     with open(miniprot_file) as f:
         for line in f:
             if line.startswith("#"):
                 continue
             fields = line.strip().split("\t")
-            if fields[0] == fields[5] and fields[1]*3 == fields[6]:
-                continue
+            if fields[0] == fields[5] and int(fields[2]) == 0 and int(fields[3]) == int(fields[1]) and int(fields[9]) // 3 == int(fields[1]):
+                if fields[0] not in res:
+                    res[fields[0]] = []
+                res[fields[0]].append((int(fields[8]), int(fields[7]), fields[4]))
 
-def parse_results_and_generate_tbl(blast_file, paf_file, output_tbl):
+                # print(f"  Miniprot match: {line.strip()}")
+    return res
+
+def parse_ahrd_results(ahrd_file):
+    res = {}
+    with open(ahrd_file) as f:
+        for line in f:
+            if line.startswith("#") or line.startswith("Protein-Accession"):
+                continue
+            fields = line.strip().split("\t")
+            if len(fields) <= 3:
+                continue
+            if fields[2]=='***':
+                res[fields[0]]=fields[3]
+    return res
+
+def parse_trnascan_results(trnascan_file):
+    res = {}
+    with open(trnascan_file) as f:
+        for line in f:
+            if line.startswith("#") or line.startswith("Sequence    ") or line.startswith("Name    ") or line.startswith("------"):
+                continue
+            fields = line.strip().split()
+            type='normal'
+            strand='+'
+            if len(fields) < 8:
+                continue
+            if len(fields) > 9:
+                if fields[9] == 'pseudo':
+                    type='pseudogene'
+            if fields[2]>fields[3]:
+                strand='-'
+            if fields[0] not in res:
+                res[fields[0]] = []
+            res[fields[0]].append((type, strand, int(fields[2]), int(fields[3]), fields[4], fields[5]))
+    return res
+
+def parse_results_and_generate_tbl(genotype, transcript_file, ahrd_file, paf_file, trnascan_file, output_tbl, new_transcript_file, id_map_file):
     if Path(output_tbl).exists():
-        print(f"  Skipping TBL generation (already exists)")
+        print(f"  Skipping TBL generation (already exists): {output_tbl}")
         return
+
+    protein2pos = parse_miniprot_results(paf_file)
+    ahrd_desc = parse_ahrd_results(ahrd_file)
+    trnascan_genes= parse_trnascan_results(trnascan_file)
+    new_records = []
+    id_map = []
+
     with open(output_tbl, "w") as out:
-        out.write(">Feature hypothetical_sequence\n")
-        # TODO: replace with real annotation logic
+        for idx, record in enumerate(SeqIO.parse(transcript_file, "fasta"), start=1):
+            old_id = record.id
+            new_id = f"{genotype}_{idx:08d}"
+            seq_len = len(record.seq)
+            modified_seq = record.seq  # default
+
+            out.write(f">Feature {new_id}\n")
+            out.write(f"1\t{seq_len}\tgene\n")
+
+            if old_id in protein2pos:
+                # Detect if any match is in reverse strand
+                for start, end, strand in protein2pos[old_id]:
+                    if strand == "-":
+                        # print(f"  Reverse strand detected for {old_id}, computing reverse complement.")
+                        modified_seq = record.seq.reverse_complement()
+                        # Adjust coordinates
+                        adj_start = seq_len - end + 1
+                        adj_end = seq_len - start + 1
+                        start, end = sorted((adj_start, adj_end))
+                    else:
+                        start, end = sorted((start, end))
+                    
+                    out.write(f"{start}\t{end}\tCDS\n")
+                    if old_id in ahrd_desc:
+                        out.write(f"\t\t\tproduct\t{ahrd_desc[old_id]}\n")
+                    else:
+                        out.write(f"\t\t\tnote\thypothetical protein\n")
+            elif old_id in trnascan_genes:
+                for type, strand, start, end, gene_type, codon in trnascan_genes[old_id]:
+                    out.write(f"{start}\t{end}\ttRNA\n")
+                    out.write(f"\t\t\tproduct\ttRNA-{gene_type}\n")
+                    if type == 'pseudogene':
+                        out.write(f"\t\t\tpseudogene\tunknown\n")
+                # No match found
+                # out.write(f"{new_id}\t0\t0\n")
+
+            # Update record
+            record.id = new_id
+            record.name = new_id
+            record.description = ""
+            record.seq = modified_seq
+            new_records.append(record)
+
+            id_map.append((old_id, new_id))
+
+    # Save the new transcript fasta with modified IDs and sequences
+    with open(new_transcript_file, "w") as f_out:
+        SeqIO.write(new_records, f_out, "fasta")
+
+    print(f"  Saved modified transcripts to {new_transcript_file}")
+
+    # Save ID mapping
+    with open(id_map_file, "w") as map_out:
+        for original_id, new_id in id_map:
+            map_out.write(f"{original_id}\t{new_id}\n")
+
+    print(f"  Saved ID map to {id_map_file}")
+
+
+    # if Path(output_tbl).exists():
+    #     print(f"  Skipping TBL generation (already exists)")
+    #     return
+    # protein2pos=parse_miniprot_results(paf_file)
+    # with open(output_tbl, "w") as out:
+    #     for record in SeqIO.parse(transcript_file, "fasta"):
+    #         out.write(f">Feature {record.id}\n")
+    #         seq_len = len(record.seq)
+    #         out.write(f"1\t{seq_len}\tgene\n")
+    #         if record.id in protein2pos:
+    #             for start, end, strand in protein2pos[record.id]:
+    #                 out.write(f"{start}\t{end}\tCDS\n")
+    #         else:
+    #             # If no match found, write a hypothetical sequence
+    #             out.write(f"{record.id}\t0\t0\n")
+        
+
+    #     # TODO: replace with real annotation logic
 
 def main(transcript_list_file, output_dir):
 
@@ -320,6 +442,13 @@ def main(transcript_list_file, output_dir):
                 print(f"  Removing temporary uncompressed protein file: {uncompressed_protein_path}")
                 uncompressed_protein_path.unlink()
 
+            output_tbl= Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.tbl")
+            new_transcript_file = Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.fna")
+            id_map_file = Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.id_map.txt")
+            ahrd_out=Path(output_dir) / f"{base_output_name}.ahrd.csv"
+            trnascan_file=f"{str(modified_transcript_path.with_suffix(''))}.trnascan.txt"
+            #Processes the results
+            parse_results_and_generate_tbl(genotype,str(modified_transcript_path), ahrd_out, paf_out, trnascan_file, output_tbl, new_transcript_file, id_map_file)
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Annotate protein sequences using DIAMOND.")
