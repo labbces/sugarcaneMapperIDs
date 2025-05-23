@@ -11,8 +11,12 @@ DIAMOND_BIN = os.environ.get("DIAMOND_BIN", "diamond")
 TRNASCAN_BIN = os.environ.get("TRNASCAN_BIN", "/usr/local/tRNAscan-SE-2.0.12/bin/tRNAscan-SE")
 MINIPROT_BIN = os.environ.get("MINIPROT_BIN", "miniprot")
 AHRD_BIN = os.environ.get("AHRD_BIN", "/home/diriano/sugarcaneMapperIDs/AHRD/dist/ahrd.jar")
+DBCAN_ENV_NAME = os.environ.get("DBCAN_ENV", "CAZyme_annotation_main")
+### Set the path to the databases
 DIAMOND_DATABASES = ["DBs/uniprot_sprot.fasta","DBs/uniprot_trembl.fasta"]
+DBCAN_DATABASES_PATH = os.environ.get("DBCAN_DATABASES_PATH", "/home/diriano/sugarcaneMapperIDs/DBs/DB_CAN/")
 # ==== END GLOBAL SETTINGS ====
+
 
 def extract_genotype_from_filename(filename):
     filename_prefix = 'sugarcanePanTranscriptome_06052025_'
@@ -24,6 +28,17 @@ def check_exec_path(name, path):
     if shutil.which(path) is None:
         raise FileNotFoundError(f"Executable for {name} not found at '{path}'. Check PATH or environment variable.")
     
+def check_conda_env_exists(env_name):
+    try:
+        result = subprocess.run(["conda", "env", "list"], capture_output=True, text=True, check=True)
+        if env_name not in result.stdout:
+            raise EnvironmentError(f"Conda environment '{env_name}' not found.")
+        print(f"✅ Conda environment '{env_name}' found.")
+    except FileNotFoundError:
+        raise EnvironmentError("Conda is not installed or not in PATH.")
+    except subprocess.CalledProcessError as e:
+        raise EnvironmentError(f"Failed to list conda environments: {e}")
+
 def modify_transcript_headers(transcripts_fasta_gz, genotype, output_fasta):
     organism_str = f"[moltype=mRNA] [organism=Saccharum hybrid cultivar {genotype}]"
     with gzip.open(transcripts_fasta_gz, "rt") as input_handle, open(output_fasta, "w") as output_handle:
@@ -195,6 +210,24 @@ blast_dbs:
     print(f"  Running AHRD for {protein_fasta}")
     subprocess.run(["java", "-jar", '-Xmx10g','-XX:ActiveProcessorCount=10', AHRD_BIN, str(config_path)], check=True)
 
+def run_dbcan(input_fasta, output_dir, mode="protein"):
+    check_conda_env_exists(DBCAN_ENV_NAME)
+    output_dir = Path(output_dir)
+    if output_dir.exists():
+        print(f"  Skipping run_dbcan: output directory already exists: {output_dir}")
+        return
+
+    print(f"  Running run_dbcan on {input_fasta}")
+
+    # Construir o comando com ativação do conda
+    cmd = f"""
+    source $(conda info --base)/etc/profile.d/conda.sh && \
+    conda activate {DBCAN_ENV_NAME} && \
+    run_dbcan CAZyme_annotation --input_raw_data {input_fasta} --threads 60 --mode {mode} --output_dir {output_dir} --db_dir {DBCAN_DATABASES_PATH}
+    """
+
+    subprocess.run(cmd, shell=True, executable="/bin/bash", check=True)
+
 def parse_miniprot_results(miniprot_file):
     with open(miniprot_file) as f:
         for line in f:
@@ -277,6 +310,11 @@ def main(transcript_list_file, output_dir):
                 str(output_dir),
                 base_output_name
             )
+
+            dbcan_output_dir = Path(output_dir) / f"{base_output_name}.dbcan"
+            run_dbcan(str(uncompressed_protein_path), str(dbcan_output_dir))
+            
+
 
             if protein_path.suffix == ".gz" and uncompressed_protein_path.exists():
                 print(f"  Removing temporary uncompressed protein file: {uncompressed_protein_path}")
