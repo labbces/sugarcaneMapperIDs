@@ -305,13 +305,20 @@ def parse_results_and_generate_tbl(genotype, transcript_file, ahrd_file, paf_fil
                         # print(f"  Reverse strand detected for {old_id}, computing reverse complement.")
                         modified_seq = record.seq.reverse_complement()
                         # Adjust coordinates
-                        adj_start = seq_len - end + 1
-                        adj_end = seq_len - start + 1
+                        adj_start = seq_len - (end + 1)
+                        adj_end = seq_len - (start + 1)
                         start, end = sorted((adj_start, adj_end))
                     else:
                         start, end = sorted((start, end))
                     
-                    out.write(f"{start}\t{end}\tCDS\n")
+                    completeStart = ''
+                    completeEnd   = ''
+                    if start == 0 and modified_seq[start:start+3].upper() != "ATG":
+                        # print(f"  Start codon ATG not found at the beginning of {old_id}.")
+                        completeStart='<'
+                    if end == seq_len and (modified_seq[-3:].upper() != "TAA" and modified_seq[-3:].upper() != "TAG" and modified_seq[-3:].upper() != "TGA"):
+                        completeEnd='>'
+                    out.write(f"{completeStart}{start+1}\t{completeEnd}{end}\tCDS\n")
                     if old_id in ahrd_desc:
                         out.write(f"\t\t\tproduct\t{ahrd_desc[old_id]}\n")
                     else:
@@ -338,7 +345,7 @@ def parse_results_and_generate_tbl(genotype, transcript_file, ahrd_file, paf_fil
             # Update record
             record.id = new_id
             record.name = new_id
-            record.description = ""
+            record.description = f"[moltype=transcribed_RNA] [tech=TSA] [organism=Saccharum hybrid cultivar {genotype}]"
             record.seq = modified_seq
             new_records.append(record)
 
