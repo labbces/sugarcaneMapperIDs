@@ -21,6 +21,7 @@ uniprot_sprot.fasta*
 *.fofn
 pp/*
 *yml
+table2asn
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
