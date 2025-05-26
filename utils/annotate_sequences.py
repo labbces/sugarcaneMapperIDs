@@ -318,6 +318,16 @@ def parse_results_and_generate_tbl(genotype, transcript_file, ahrd_file, paf_fil
                         out.write(f"\t\t\tnote\thypothetical protein\n")
             elif old_id in trnascan_genes:
                 for type, strand, start, end, gene_type, codon in trnascan_genes[old_id]:
+                    if strand == "-":
+                        # print(f"  Reverse strand detected for {old_id}, computing reverse complement.")
+                        modified_seq = record.seq.reverse_complement()
+                        # Adjust coordinates
+                        adj_start = seq_len - end + 1
+                        adj_end = seq_len - start + 1
+                        start, end = sorted((adj_start, adj_end))
+                    else:
+                        start, end = sorted((start, end))
+
                     out.write(f"{start}\t{end}\ttRNA\n")
                     out.write(f"\t\t\tproduct\ttRNA-{gene_type}\n")
                     if type == 'pseudogene':
@@ -443,7 +453,7 @@ def main(transcript_list_file, output_dir):
                 uncompressed_protein_path.unlink()
 
             output_tbl= Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.tbl")
-            new_transcript_file = Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.fna")
+            new_transcript_file = Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.fsa")
             id_map_file = Path(output_dir) / transcript_path.name.replace(".fix.fasta.gz", ".2ncbi.id_map.txt")
             ahrd_out=Path(output_dir) / f"{base_output_name}.ahrd.csv"
             trnascan_file=f"{str(modified_transcript_path.with_suffix(''))}.trnascan.txt"
